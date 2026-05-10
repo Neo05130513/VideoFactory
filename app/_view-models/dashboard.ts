@@ -117,7 +117,7 @@ function summarizeFailureStats(projects: Array<{ status: string; lastError?: str
   return [
     { label: '渲染失败', count: failedProjects.filter((item) => /render|ffmpeg|渲染/i.test(item.lastError || '')).length, note: 'ffmpeg / render 相关', tone: '#fca5a5' },
     { label: '素材缺失', count: failedProjects.filter((item) => /image|audio|subtitle|素材/i.test(item.lastError || '')).length, note: '图片/音频/字幕不完整', tone: '#fde68a' },
-    { label: '配置问题', count: failedProjects.filter((item) => /minimax|api key|配置|installed/i.test(item.lastError || '')).length, note: '环境或密钥问题', tone: '#93c5fd' },
-    { label: '其他失败', count: Math.max(0, failedProjects.length - failedProjects.filter((item) => /render|ffmpeg|渲染|image|audio|subtitle|素材|minimax|api key|配置|installed/i.test(item.lastError || '')).length), note: '需要人工继续归类', tone: '#c4b5fd' }
+    { label: '配置问题', count: failedProjects.filter((item) => /openai|minimax|api key|配置|installed/i.test(item.lastError || '')).length, note: '环境或密钥问题', tone: '#93c5fd' },
+    { label: '其他失败', count: Math.max(0, failedProjects.length - failedProjects.filter((item) => /render|ffmpeg|渲染|image|audio|subtitle|素材|openai|minimax|api key|配置|installed/i.test(item.lastError || '')).length), note: '需要人工继续归类', tone: '#c4b5fd' }
   ];
 }

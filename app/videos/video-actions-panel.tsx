@@ -5,7 +5,7 @@ import { navigatePendingWindow, openPendingWindow } from '../_components/open-ne
 import type { Script, VideoProject } from '@/lib/types';
 
 type ProjectAspectRatio = '9:16' | '16:9';
-type ProjectTemplate = 'ai-explainer-short-v1' | 'tech-explainer-v1' | 'tutorial-demo-v1';
+type ProjectTemplate = 'ai-explainer-short-v1' | 'hyperframes-explainer-v1' | 'tech-explainer-v1' | 'tutorial-demo-v1';
 
 type VoiceSettingsView = {
   provider: 'aliyun-cosyvoice' | 'minimax' | 'custom-http';
@@ -50,10 +50,11 @@ type VoiceProfileView = {
   updatedAt: string;
 };
 
-const DEFAULT_MINIMAX_TEST_PROMPT = 'Create a high-end cinematic vertical keyframe for Chinese short video: a product manager in a modern startup office using AI to design a premium product introduction PPT, realistic photography, believable monitor UI, polished desk setup, dramatic but natural lighting, commercial ad quality, 9:16, no watermark, no gibberish text.';
+const DEFAULT_OPENAI_IMAGE_TEST_PROMPT = 'Create a high-end cinematic vertical keyframe for Chinese short video: a product manager in a modern startup office using AI to design a premium product introduction PPT, realistic photography, believable monitor UI, polished desk setup, dramatic but natural lighting, commercial ad quality, 9:16, no watermark, no gibberish text.';
 
 const templateOptions: Array<{ value: ProjectTemplate; label: string; note: string }> = [
   { value: 'ai-explainer-short-v1', label: 'AI 科普短视频', note: '高密度观点、关键词、卡片和数据模块' },
+  { value: 'hyperframes-explainer-v1', label: 'Hyperframes 视觉实验', note: 'HTML 卡片、浏览器框和动态图层，适合高质感短视频' },
   { value: 'tech-explainer-v1', label: '技术解释器', note: '框架化拆解，适合流程和方法论' },
   { value: 'tutorial-demo-v1', label: '教程演示', note: '偏步骤教学和操作说明' }
 ];
@@ -65,7 +66,7 @@ function templateLabel(template: string) {
 export function VideoActionsPanel({ scripts, projects }: { scripts: Script[]; projects: VideoProject[] }) {
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [message, setMessage] = useState<string>('');
-  const [minimaxPrompt, setMinimaxPrompt] = useState(DEFAULT_MINIMAX_TEST_PROMPT);
+  const [openaiImagePrompt, setOpenAIImagePrompt] = useState(DEFAULT_OPENAI_IMAGE_TEST_PROMPT);
   const [testImagePath, setTestImagePath] = useState<string>('');
   const [testImageUrl, setTestImageUrl] = useState<string>('');
   const [selectedScriptIds, setSelectedScriptIds] = useState<string[]>([]);
@@ -285,28 +286,28 @@ export function VideoActionsPanel({ scripts, projects }: { scripts: Script[]; pr
     }
   }
 
-  async function testMiniMaxImage() {
-    const key = 'minimax-image-test';
+  async function testOpenAIImage() {
+    const key = 'openai-image-test';
     setBusyKey(key);
-    setMessage('正在请求 MiniMax 出图...');
+    setMessage('正在请求 OpenAI 出图...');
     setTestImagePath('');
     setTestImageUrl('');
     try {
-      const response = await fetch('/api/minimax/image-test', {
+      const response = await fetch('/api/openai/image-test', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: minimaxPrompt })
+        body: JSON.stringify({ prompt: openaiImagePrompt })
       });
       const payload = await response.json();
       if (!response.ok) {
-        throw new Error(payload.error || 'MiniMax 图片测试失败');
+        throw new Error(payload.error || 'OpenAI 图片测试失败');
       }
       const endpoint = payload.endpoint ? `（命中 ${payload.endpoint}）` : '';
       setTestImagePath(payload.image?.publicPath || '');
       setTestImageUrl(payload.imageUrl || '');
-      setMessage(`MiniMax 图片测试成功${endpoint}。`);
+      setMessage(`OpenAI 图片测试成功${endpoint}。`);
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'MiniMax 图片测试失败');
+      setMessage(error instanceof Error ? error.message : 'OpenAI 图片测试失败');
     } finally {
       setBusyKey(null);
     }
@@ -505,7 +506,7 @@ export function VideoActionsPanel({ scripts, projects }: { scripts: Script[]; pr
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap', alignItems: 'center' }}>
         <div>
           <h2 style={{ margin: 0 }}>快速操作</h2>
-          <p style={{ margin: '8px 0 0', color: '#cbd5e1' }}>先从脚本创建视频项目，再对项目执行 render。当前页面会优先使用 MiniMax 生成图片素材，失败时才回退到本地占位图。</p>
+          <p style={{ margin: '8px 0 0', color: '#cbd5e1' }}>先从脚本创建视频项目，再对项目执行 render。当前页面默认使用 OpenAI 生成图片素材；如显式设置 VIDEO_IMAGE_PROVIDER=minimax 才走旧 MiniMax，失败时回退到本地占位图。</p>
         </div>
         {message ? <div style={{ color: '#93c5fd', maxWidth: 420 }}>{message}</div> : null}
       </div>
@@ -657,24 +658,24 @@ export function VideoActionsPanel({ scripts, projects }: { scripts: Script[]; pr
         </div>
 
         <div style={{ display: 'grid', gap: 12 }}>
-          <h3 style={{ margin: 0, color: '#f8fafc' }}>MiniMax 单图测试</h3>
+          <h3 style={{ margin: 0, color: '#f8fafc' }}>OpenAI 单图测试</h3>
           <textarea
-            value={minimaxPrompt}
-            onChange={(event) => setMinimaxPrompt(event.target.value)}
+            value={openaiImagePrompt}
+            onChange={(event) => setOpenAIImagePrompt(event.target.value)}
             rows={8}
             style={{ width: '100%', borderRadius: 16, border: '1px solid rgba(148,163,184,0.22)', background: 'rgba(2,6,23,0.68)', color: '#e2e8f0', padding: 14, resize: 'vertical' }}
           />
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <button
-              onClick={testMiniMaxImage}
+              onClick={testOpenAIImage}
               disabled={busyKey !== null}
-              style={buttonStyle(busyKey === 'minimax-image-test')}
+              style={buttonStyle(busyKey === 'openai-image-test')}
             >
-              {busyKey === 'minimax-image-test' ? '测试中...' : '测试 MiniMax 出图'}
+              {busyKey === 'openai-image-test' ? '测试中...' : '测试 OpenAI 出图'}
             </button>
             {testImageUrl ? <a href={testImageUrl} target="_blank" rel="noreferrer" style={{ color: '#fbbf24' }}>打开测试图片</a> : null}
           </div>
-          {testImageUrl ? <img src={testImageUrl} alt="MiniMax test output" style={{ width: 220, borderRadius: 18, border: '1px solid rgba(255,255,255,0.12)' }} /> : null}
+          {testImageUrl ? <img src={testImageUrl} alt="OpenAI test output" style={{ width: 220, borderRadius: 18, border: '1px solid rgba(255,255,255,0.12)' }} /> : null}
         </div>
 
         <div style={{ display: 'grid', gap: 12 }}>

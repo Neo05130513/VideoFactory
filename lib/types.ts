@@ -5,7 +5,7 @@ export type Platform = 'document' | 'douyin' | 'kuaishou' | 'bilibili' | 'articl
 export type VideoProjectStatus = 'draft' | 'storyboarded' | 'rendering' | 'completed' | 'failed';
 export type RenderJobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type PipelineJobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
-export type VideoTemplate = 'tutorial-demo-v1' | 'tech-explainer-v1' | 'ai-explainer-short-v1';
+export type VideoTemplate = 'tutorial-demo-v1' | 'tech-explainer-v1' | 'ai-explainer-short-v1' | 'hyperframes-explainer-v1';
 export type VideoShotType = 'title' | 'pain' | 'step' | 'result' | 'cta';
 export type VideoVisualType = 'slide' | 'screen' | 'image' | 'caption';
 export type VideoAssetType = 'image' | 'audio' | 'subtitle' | 'video';
@@ -211,14 +211,6 @@ export interface PipelineJobResult {
   scripts: PipelineScriptPreview[];
   firstScriptId?: string;
   firstScriptTitle?: string;
-  firstScriptShots?: Array<{
-    order: number;
-    title: string;
-    voiceover: string;
-    subtitle: string;
-    visualPrompt: string;
-    durationSec: number;
-  }>;
 }
 
 export interface PipelineJob {
@@ -229,6 +221,8 @@ export interface PipelineJob {
   progress: number;
   detail?: string;
   previewText?: string;
+  streamText?: string;
+  streamUpdatedAt?: string;
   currentTopicTitle?: string;
   currentTopicIndex?: number;
   totalTopics?: number;
@@ -261,7 +255,7 @@ export interface QualityReview {
 export interface StoryboardReview {
   id: string;
   projectId: string;
-  source: 'minimax' | 'rule-fallback';
+  source: 'openai' | 'minimax' | 'rule-fallback';
   model?: string;
   endpoint?: string;
   score: number;

@@ -1,1 +1,112 @@
-[]
+[
+  {
+    "id": "audit_1778288697192_99rt97",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.create",
+    "targetType": "video_project",
+    "targetId": "video_project_1778288697177_y5hr8o",
+    "summary": "从脚本创建视频项目：AI消息太多，销售团队该追哪一类",
+    "createdAt": "2026-05-09T01:04:57.192Z"
+  },
+  {
+    "id": "audit_1778288552479_knq1m6",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "tutorial.import.upload",
+    "targetType": "tutorial",
+    "targetId": "tutorial_1778288552477_b0t1gm",
+    "summary": "上传导入文档：粘贴文本",
+    "createdAt": "2026-05-09T01:02:32.479Z"
+  },
+  {
+    "id": "audit_1778288550511_aqkbkh",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "voice.profile.default",
+    "targetType": "system",
+    "targetId": "voice_profile_1776852032356_c01r5d",
+    "summary": "设置默认音色：Neo音色",
+    "createdAt": "2026-05-09T01:02:30.511Z"
+  },
+  {
+    "id": "audit_1778261080718_poa5hr",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.storyboard.regenerate",
+    "targetType": "video_project",
+    "targetId": "video_project_1778261012258_26pdvu",
+    "summary": "重生成分镜：实体企业先用AI提效的客户管理流程",
+    "createdAt": "2026-05-08T17:24:40.718Z"
+  },
+  {
+    "id": "audit_1778259266366_bivr7n",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.render.enqueue",
+    "targetType": "video_project",
+    "targetId": "video_project_1778258874134_s0pu4w",
+    "summary": "提交渲染任务：video_project_1778258874134_s0pu4w",
+    "createdAt": "2026-05-08T16:54:26.366Z"
+  },
+  {
+    "id": "audit_1778258240709_lvptqt",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "voice.profile.default",
+    "targetType": "system",
+    "targetId": "voice_profile_1776852032356_c01r5d",
+    "summary": "设置默认音色：Neo音色",
+    "createdAt": "2026-05-08T16:37:20.709Z"
+  },
+  {
+    "id": "audit_1778247304387_gyyj2q",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "voice.profile.default",
+    "targetType": "system",
+    "targetId": "voice_profile_1776852032356_c01r5d",
+    "summary": "设置默认音色：Neo音色",
+    "createdAt": "2026-05-08T13:35:04.387Z"
+  },
+  {
+    "id": "audit_1778245688144_be7fnx",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "tutorial.import.upload",
+    "targetType": "tutorial",
+    "targetId": "tutorial_1778245688142_n940oz",
+    "summary": "上传导入文档：粘贴文本",
+    "createdAt": "2026-05-08T13:08:08.144Z"
+  },
+  {
+    "id": "audit_1778245686161_eak1w9",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "voice.profile.default",
+    "targetType": "system",
+    "targetId": "voice_profile_1776852032356_c01r5d",
+    "summary": "设置默认音色：Neo音色",
+    "createdAt": "2026-05-08T13:08:06.161Z"
+  },
+  {
+    "id": "audit_1778244006245_vmqatd",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "auth.login.success",
+    "targetType": "system",
+    "targetId": "user_admin_demo",
+    "summary": "登录成功：admin@videofactory.local",
+    "createdAt": "2026-05-08T12:40:06.245Z"
+  }
+]

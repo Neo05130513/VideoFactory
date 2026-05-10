@@ -3,6 +3,7 @@ import { Composition } from 'remotion';
 import { TutorialDemo, getDurationInFrames } from './TutorialDemo';
 import { TechExplainer, getTechDurationInFrames } from './TechExplainer';
 import { AiExplainerShort, getAiExplainerDurationInFrames } from './AiExplainerShort';
+import { HyperframesExplainer, getHyperframesDurationInFrames } from './HyperframesExplainer';
 import aiExplainerShortFixture from './fixtures/ai-explainer-short.json';
 import type { RemotionVideoInput } from './types';
 
@@ -18,6 +19,10 @@ function TechExplainerComposition(props: Record<string, unknown>) {
 
 function AiExplainerShortComposition(props: Record<string, unknown>) {
   return <AiExplainerShort {...(props as unknown as RemotionVideoInput)} />;
+}
+
+function HyperframesExplainerComposition(props: Record<string, unknown>) {
+  return <HyperframesExplainer {...(props as unknown as RemotionVideoInput)} />;
 }
 
 function getRenderSize(input: RemotionVideoInput) {
@@ -67,6 +72,20 @@ export function RemotionRoot() {
         defaultProps={{ ...defaultInput, project: { ...defaultInput.project, template: 'ai-explainer-short-v1' } } as unknown as Record<string, unknown>}
         calculateMetadata={({ props }) => ({
           durationInFrames: getAiExplainerDurationInFrames(props as unknown as RemotionVideoInput),
+          fps: 30,
+          ...getRenderSize(props as unknown as RemotionVideoInput)
+        })}
+      />
+      <Composition
+        id="HyperframesExplainer"
+        component={HyperframesExplainerComposition}
+        durationInFrames={getHyperframesDurationInFrames(defaultInput)}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{ ...defaultInput, project: { ...defaultInput.project, template: 'hyperframes-explainer-v1' } } as unknown as Record<string, unknown>}
+        calculateMetadata={({ props }) => ({
+          durationInFrames: getHyperframesDurationInFrames(props as unknown as RemotionVideoInput),
           fps: 30,
           ...getRenderSize(props as unknown as RemotionVideoInput)
         })}

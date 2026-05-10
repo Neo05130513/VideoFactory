@@ -36,8 +36,9 @@ export default async function SettingsPage() {
 
       <section style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
         <Panel style={{ display: 'grid', gap: 16 }}>
-          <SectionTitle title="服务状态" note="这些能力决定声音复刻、图片生成和视频合成能不能跑通。" />
+          <SectionTitle title="服务状态" note="这些能力决定脚本、storyboard、图片、旁白和视频合成能不能跑通。" />
           <div style={{ display: 'grid', gap: 10 }}>
+            <SettingRow label="OpenAI" value={runtime.openaiConfigured ? '已配置' : '未配置'} ok={runtime.openaiConfigured} />
             <SettingRow label="语音供应商" value={formatProvider(voiceSettings.provider)} ok={voiceServiceReady(voiceSettings)} />
             <SettingRow label="MiniMax" value={runtime.minimaxConfigured ? '已配置' : '未配置'} ok={runtime.minimaxConfigured} />
             <SettingRow label="Remotion" value={runtime.remotionDependenciesInstalled ? '可解析' : '不可解析'} ok={runtime.remotionDependenciesInstalled} />
@@ -83,6 +84,10 @@ export default async function SettingsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
           <InfoRow label="Node" value={runtime.nodeVersion} />
           <InfoRow label="平台" value={`${runtime.platform} / ${runtime.arch}`} />
+          <InfoRow label="OpenAI 文本模型" value={process.env.OPENAI_TEXT_MODEL || 'gpt-5.4'} />
+          <InfoRow label="OpenAI 图片模型" value={process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1'} />
+          <InfoRow label="OpenAI TTS 模型" value={process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts'} />
+          <InfoRow label="OpenAI TTS 声音" value={process.env.OPENAI_TTS_VOICE || 'alloy'} />
           <InfoRow label="CosyVoice 模型" value={voiceSettings.cosyvoiceModel || '未设置'} />
           <InfoRow label="CosyVoice 克隆模型" value={voiceSettings.cosyvoiceCloneModel || '未设置'} />
           <InfoRow label="MiniMax TTS 模型" value={voiceSettings.minimaxTtsModel || '未设置'} />

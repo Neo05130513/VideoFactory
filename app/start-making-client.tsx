@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { navigatePendingWindow, openPendingWindow } from './_components/open-new-window';
 import { linkButtonStyle, newWindowLinkProps, primaryButtonStyle, secondaryButtonStyle, StatusBadge, subtlePanelStyle } from './_components/studio-ui';
 import { estimateGenerationFromText } from '@/lib/performance/estimate';
 import type { PerformanceSettings } from '@/lib/performance/settings';
@@ -36,31 +37,22 @@ type PendingScriptConfirmation = {
   scriptId: string;
   title: string;
   href: string;
-  shots: ScriptShotView[];
+  hook: string;
 };
 
-type ScriptShotView = {
-  order: number;
-  title: string;
-  voiceover: string;
-  subtitle: string;
-  visualPrompt: string;
-  durationSec: number;
-};
-
-type PipelineJobView = Pick<PipelineJob, 'id' | 'status' | 'stage' | 'progress' | 'detail' | 'previewText' | 'currentTopicTitle' | 'currentTopicIndex' | 'totalTopics' | 'attempt' | 'maxAttempts' | 'elapsedMs' | 'createdAt' | 'updatedAt' | 'error' | 'result'>;
+type PipelineJobView = Pick<PipelineJob, 'id' | 'status' | 'stage' | 'progress' | 'detail' | 'previewText' | 'streamText' | 'currentTopicTitle' | 'currentTopicIndex' | 'totalTopics' | 'attempt' | 'maxAttempts' | 'elapsedMs' | 'createdAt' | 'updatedAt' | 'error' | 'result'>;
 
 const initialSteps: ProgressStep[] = [
   { id: 'voice', title: '确认旁白音色', desc: '从我的素材中选择一个复刻完成的音色。', status: 'idle', progress: 0 },
   { id: 'import', title: '导入文档', desc: '上传文件或保存粘贴文本，生成文档素材。', status: 'idle', progress: 0 },
   { id: 'parse', title: '理解文档并撰写脚本', desc: '系统会解析文档内容，自动生成可用于讲解视频的脚本。', status: 'idle', progress: 0 },
-  { id: 'project', title: '创建视频项目', desc: '使用智能讲解模板生成视频项目和分镜。', status: 'idle', progress: 0 },
+  { id: 'project', title: '创建视频项目', desc: '确认脚本后，使用 OpenAI 整片生成 storyboard 和模板预览。', status: 'idle', progress: 0 },
   { id: 'render', title: '生成旁白、画面与成片', desc: '提交制作任务，生成音频、字幕和最终视频。', status: 'idle', progress: 0 },
   { id: 'review', title: '查看结果并继续修改', desc: '完成后可进入视频详情，检查脚本、分镜、资源和输出文件。', status: 'idle', progress: 0 }
 ];
 
-const storageKey = 'video-factory:start-making-state:v2';
-const legacyStorageKeys = ['video-factory:start-making-state:v1'];
+const storageKey = 'video-factory:start-making-state:v3';
+const legacyStorageKeys = ['video-factory:start-making-state:v1', 'video-factory:start-making-state:v2'];
 
 function statusTone(status: StepState) {
   if (status === 'done') return 'success' as const;
@@ -108,6 +100,7 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
   const voiceSectionRef = useRef<HTMLElement | null>(null);
   const documentSectionRef = useRef<HTMLElement | null>(null);
   const generateSectionRef = useRef<HTMLElement | null>(null);
+  const pipelineStreamRef = useRef<HTMLDivElement | null>(null);
   const pollingProjectRef = useRef<string | null>(null);
   const pollingPipelineJobRef = useRef<string | null>(null);
   const backgroundRequestedRef = useRef(false);
@@ -161,7 +154,7 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
       if (stored.message) setMessage(stored.message);
       if (stored.activeProjectId) setActiveProjectId(stored.activeProjectId);
       if (stored.activePipelineJobId) setActivePipelineJobId(stored.activePipelineJobId);
-      if (stored.pendingScript?.scriptId && Array.isArray(stored.pendingScript.shots)) setPendingScript(stored.pendingScript);
+      if (stored.pendingScript?.scriptId && typeof stored.pendingScript.hook === 'string') setPendingScript(stored.pendingScript);
     } catch {
     } finally {
       setHydrated(true);
@@ -187,14 +180,53 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
   useEffect(() => {
     if (!hydrated || !activePipelineJobId || pendingScript || activeProjectId) return;
     let cancelled = false;
+    let fallbackStarted = false;
+    let resolved = false;
     setBusy(true);
-    void pollPipelineJob(activePipelineJobId).finally(() => {
-      if (!cancelled) setBusy(false);
-    });
+
+    const fallbackToPolling = () => {
+      if (fallbackStarted || resolved || cancelled) return;
+      fallbackStarted = true;
+      void pollPipelineJob(activePipelineJobId).finally(() => {
+        if (!cancelled) setBusy(false);
+      });
+    };
+
+    if (typeof window === 'undefined' || typeof window.EventSource === 'undefined') {
+      fallbackToPolling();
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    const source = new window.EventSource(`/api/pipeline/jobs/${activePipelineJobId}/events`);
+    source.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as { job?: PipelineJobView };
+        if (!payload.job) return;
+        resolved = handlePipelineJobUpdate(payload.job);
+        if (resolved) {
+          source.close();
+          if (!cancelled) setBusy(false);
+        }
+      } catch {
+      }
+    };
+    source.onerror = () => {
+      source.close();
+      fallbackToPolling();
+    };
+
     return () => {
       cancelled = true;
+      source.close();
     };
   }, [hydrated, activePipelineJobId, pendingScript, activeProjectId]);
+
+  useEffect(() => {
+    if (!pipelineStreamRef.current || !pipelineJob?.streamText) return;
+    pipelineStreamRef.current.scrollTop = pipelineStreamRef.current.scrollHeight;
+  }, [pipelineJob?.streamText]);
 
   useEffect(() => {
     const renderStep = steps.find((step) => step.id === 'render');
@@ -211,7 +243,10 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
     setSteps((current) => current.map((step) => step.id === id ? { ...step, ...patch } : step));
   }
 
-  function resetSteps() {
+  function resetSteps(options?: { preserveBusy?: boolean; clearPersistedState?: boolean }) {
+    if (!options?.preserveBusy) {
+      setBusy(false);
+    }
     setSteps(initialSteps);
     setMessage('');
     setActiveProjectId('');
@@ -219,9 +254,17 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
     setPipelineJob(null);
     setPendingScript(null);
     setBackgroundRequested(false);
+    pollingProjectRef.current = null;
+    pollingPipelineJobRef.current = null;
     backgroundRequestedRef.current = false;
     backgroundProjectRef.current = null;
     stopRequestedRef.current = false;
+    if (options?.clearPersistedState !== false && typeof window !== 'undefined') {
+      try {
+        window.localStorage.removeItem(storageKey);
+      } catch {
+      }
+    }
   }
 
   function moveCurrentTaskToBackground() {
@@ -305,12 +348,9 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
       return;
     }
 
+    resetSteps({ preserveBusy: true });
     setBusy(true);
-    setBackgroundRequested(false);
-    backgroundRequestedRef.current = false;
-    backgroundProjectRef.current = null;
-    stopRequestedRef.current = false;
-    resetSteps();
+    let keepBusy = false;
     try {
       await setDefaultVoice(selectedVoiceId);
       ensureNotStopped();
@@ -352,19 +392,19 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
       setActivePipelineJobId(job.id);
       setPipelineJob(job);
       setMessage('脚本生成任务已开始，正在持续同步进度...');
-      await pollPipelineJob(job.id);
+      keepBusy = true;
     } catch (error) {
       const text = error instanceof Error ? error.message : '生成视频失败';
       setMessage(text);
       setSteps((current) => current.map((step) => step.status === 'running' ? { ...step, status: 'failed', progress: 100, detail: text } : step));
     } finally {
-      setBusy(false);
+      if (!keepBusy) setBusy(false);
     }
   }
 
   async function confirmScriptAndContinue() {
     if (!pendingScript) {
-      setMessage('还没有需要确认的镜头拆解。');
+      setMessage('还没有需要确认的脚本。');
       return;
     }
 
@@ -373,10 +413,11 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
     setBackgroundRequested(false);
     backgroundRequestedRef.current = false;
     backgroundProjectRef.current = null;
-    setMessage('已确认镜头拆解，正在创建视频项目...');
+      setMessage('已确认脚本，正在创建视频项目...');
 
     try {
-      updateStep('parse', { status: 'done', progress: 100, detail: `已确认 ${pendingScript.shots.length} 个镜头。`, href: pendingScript.href });
+      const previewWindow = backgroundRequestedRef.current ? null : openPendingWindow();
+      updateStep('parse', { status: 'done', progress: 100, detail: '已确认脚本内容。', href: pendingScript.href });
       updateStep('project', { status: 'running', progress: 45, detail: '正在创建视频项目和分镜...' });
       const createResponse = await fetch('/api/videos/create', {
         method: 'POST',
@@ -395,19 +436,27 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
         updateStep('render', { status: 'running', progress: 20, detail: '正在提交制作任务...' });
         const renderResponse = await fetch(`/api/videos/${projectId}/render`, { method: 'POST' });
         const renderPayload = await renderResponse.json();
-      if (!renderResponse.ok) throw new Error(renderPayload.error || '提交制作任务失败');
-      ensureNotStopped();
-      updateStep('review', { status: 'running', progress: 30, href: `/videos/${projectId}`, detail: '项目已创建，生成完成后可在这里继续修改。' });
-      if (backgroundRequestedRef.current) {
+        if (!renderResponse.ok) throw new Error(renderPayload.error || '提交制作任务失败');
+        window.dispatchEvent(new CustomEvent('video-render-started', { detail: { projectId } }));
+        ensureNotStopped();
+        updateStep('review', { status: 'running', progress: 30, href: `/videos/${projectId}`, detail: '项目已创建，生成完成后可在这里继续修改。' });
+        if (backgroundRequestedRef.current) {
           backgroundProjectRef.current = projectId;
           updateStep('render', { status: 'running', progress: 35, href: `/videos/${projectId}`, detail: '任务已进入后台队列，可以继续开始制作下一条视频。' });
           updateStep('review', { status: 'running', progress: 50, href: `/videos/${projectId}`, detail: '后台制作中，打开视频详情查看最新状态。' });
         } else {
-          await pollRender(projectId);
+          setPendingScript(null);
+          setMessage('视频项目已创建，正在打开真实预览...');
+          navigatePendingWindow(previewWindow, `/videos/${projectId}`);
+          return;
         }
       } else {
         updateStep('render', { status: 'idle', progress: 0, detail: '已跳过自动制作，可以在视频详情中手动开始。', href: `/videos/${projectId}` });
         updateStep('review', { status: 'running', progress: 50, href: `/videos/${projectId}`, detail: '打开视频详情继续制作或修改。' });
+        setPendingScript(null);
+        setMessage('视频项目已创建，正在打开真实预览...');
+        navigatePendingWindow(previewWindow, `/videos/${projectId}`);
+        return;
       }
 
       setPendingScript(null);
@@ -516,53 +565,72 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
     if (pollingPipelineJobRef.current === jobId) return;
     pollingPipelineJobRef.current = jobId;
     try {
-    for (let attempt = 0; attempt < 900; attempt += 1) {
-      const response = await fetch(`/api/pipeline/jobs/${jobId}`, { cache: 'no-store' });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || '读取脚本生成进度失败');
-      const job = payload.job as PipelineJobView;
-      setPipelineJob(job);
-      syncPipelineStep(job);
-
-      if (job.status === 'completed') {
-        const firstScriptId = job.result?.firstScriptId;
-        const firstScriptTitle = job.result?.firstScriptTitle;
-        const shots = job.result?.firstScriptShots || [];
-        if (!firstScriptId || !firstScriptTitle) {
-          throw new Error('脚本任务已完成，但没有返回可用脚本。');
+      for (let attempt = 0; attempt < 900; attempt += 1) {
+        const response = await fetch(`/api/pipeline/jobs/${jobId}`, { cache: 'no-store' });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          if (response.status === 404) {
+            setActivePipelineJobId('');
+            setPipelineJob(null);
+            updateStep('parse', { status: 'failed', progress: 100, detail: '上一次脚本任务已不存在，请重新开始。' });
+            setMessage('检测到旧的脚本任务状态已经失效，当前页已自动清理。');
+            return;
+          }
+          throw new Error(payload.error || '读取脚本生成进度失败');
         }
-        setPendingScript({
-          scriptId: firstScriptId,
-          title: firstScriptTitle,
-          href: `/scripts/${firstScriptId}`,
-          shots
-        });
-        setActivePipelineJobId('');
-        updateStep('parse', { status: 'waiting', progress: 100, detail: `已生成脚本和 ${shots.length} 个镜头，请先确认镜头拆解。`, href: `/scripts/${firstScriptId}` });
-        updateStep('project', { status: 'waiting', progress: 0, detail: '等待客户确认镜头拆解后，再创建视频项目。' });
-        updateStep('render', { status: 'idle', progress: 0, detail: '确认镜头后再进入生成。' });
-        updateStep('review', { status: 'idle', progress: 0, detail: '确认镜头后再进入结果检查。' });
-        setMessage('脚本和镜头拆解已生成。请先确认镜头，再继续创建视频。');
-        return;
+        const job = payload.job as PipelineJobView;
+        if (handlePipelineJobUpdate(job)) return;
+
+        await new Promise((resolve) => setTimeout(resolve, 1200));
       }
 
-      if (job.status === 'failed' || job.status === 'cancelled') {
-        setActivePipelineJobId('');
-        const text = compactError(job.error || job.detail || (job.status === 'cancelled' ? '已停止脚本生成' : '脚本生成失败'));
-        updateStep('parse', { status: 'failed', progress: 100, detail: text });
-        setMessage(text);
-        return;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 1200));
-    }
-
-    setMessage('脚本生成仍在进行中，页面会继续保留当前进度。');
+      setMessage('脚本生成仍在进行中，页面会继续保留当前进度。');
     } finally {
       if (pollingPipelineJobRef.current === jobId) {
         pollingPipelineJobRef.current = null;
       }
     }
+  }
+
+  function handlePipelineJobUpdate(job: PipelineJobView) {
+    setPipelineJob(job);
+    syncPipelineStep(job);
+
+    if (job.status === 'completed') {
+      const firstScriptId = job.result?.firstScriptId;
+      const firstScriptTitle = job.result?.firstScriptTitle;
+      const firstScriptHook = job.result?.scripts?.find((item) => item.id === firstScriptId)?.hook || job.previewText || '';
+      if (!firstScriptId || !firstScriptTitle) {
+        const text = '脚本任务已完成，但没有返回可用脚本。';
+        setActivePipelineJobId('');
+        updateStep('parse', { status: 'failed', progress: 100, detail: text });
+        setMessage(text);
+        return true;
+      }
+      setPendingScript({
+        scriptId: firstScriptId,
+        title: firstScriptTitle,
+        href: `/scripts/${firstScriptId}`,
+        hook: firstScriptHook
+      });
+      setActivePipelineJobId('');
+      updateStep('parse', { status: 'waiting', progress: 100, detail: '脚本已生成，请先确认脚本内容。', href: `/scripts/${firstScriptId}` });
+      updateStep('project', { status: 'waiting', progress: 0, detail: '确认脚本后，会进入 OpenAI 整片 storyboard 生成。' });
+      updateStep('render', { status: 'idle', progress: 0, detail: '创建视频项目后再进入成片生成。' });
+      updateStep('review', { status: 'idle', progress: 0, detail: '创建视频项目后再进入结果检查。' });
+      setMessage('脚本已生成。当前页不再展示本地自动拆镜草稿；确认后会直接创建真实视频项目并打开预览。');
+      return true;
+    }
+
+    if (job.status === 'failed' || job.status === 'cancelled') {
+      setActivePipelineJobId('');
+      const text = compactError(job.error || job.detail || (job.status === 'cancelled' ? '已停止脚本生成' : '脚本生成失败'));
+      updateStep('parse', { status: 'failed', progress: 100, detail: text });
+      setMessage(text);
+      return true;
+    }
+
+    return false;
   }
 
   function syncPipelineStep(job: PipelineJobView) {
@@ -627,7 +695,7 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
           <textarea value={pastedText} onChange={(event) => setPastedText(event.target.value)} placeholder="也可以直接把文档内容复制粘贴到这里..." style={{ ...inputStyle, minHeight: 96, resize: 'vertical', lineHeight: 1.6 }} />
         </StepCard>
 
-        <StepCard refProp={generateSectionRef} step="3" title="生成视频" badge={<StatusBadge text="智能讲解模板" tone="info" />}>
+        <StepCard refProp={generateSectionRef} step="3" title="生成脚本与视频" badge={<StatusBadge text="智能讲解模板" tone="info" />}>
           <div style={{ ...subtlePanelStyle, padding: 12, display: 'grid', gap: 8 }}>
             <strong>画面比例</strong>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
@@ -648,7 +716,7 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
             </div>
             <span style={{ color: '#94a3b8', lineHeight: 1.6 }}>估算会根据文本长度、文件大小、镜头数量和当前并发设置自动变化。</span>
           </div>
-          <button type="button" onClick={generateVideo} disabled={!canGenerate} style={{ ...primaryButtonStyle, width: '100%' }}>{busy ? '正在生成...' : '开始生成视频'}</button>
+          <button type="button" onClick={generateVideo} disabled={!canGenerate} style={{ ...primaryButtonStyle, width: '100%' }}>{busy ? '正在生成...' : '开始解析并生成脚本'}</button>
           <button
             type="button"
             onClick={stopGeneration}
@@ -702,12 +770,28 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
           <div style={{ display: 'grid', gap: 6 }}>
             <span style={{ color: '#94a3b8', lineHeight: 1.6 }}>
               等待时长：{formatElapsedMs(pipelineJob.elapsedMs)}
-              {pipelineJob.attempt && pipelineJob.maxAttempts ? ` · MiniMax 尝试 ${pipelineJob.attempt}/${pipelineJob.maxAttempts}` : ''}
+                {pipelineJob.attempt && pipelineJob.maxAttempts ? ` · OpenAI 尝试 ${pipelineJob.attempt}/${pipelineJob.maxAttempts}` : ''}
             </span>
             <span style={{ color: '#dbeafe', lineHeight: 1.7 }}>{pipelineJob.detail || '正在等待最新状态...'}</span>
             <span style={{ color: '#67e8f9', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-              实时文字预览：{pipelineJob.previewText || '模型还没有返回文本，当前主要是在等待本轮 MiniMax 响应。'}
+              实时摘要：{pipelineJob.previewText || '模型还没有返回文本，当前主要是在等待本轮 OpenAI 响应。'}
             </span>
+            <div style={{ borderRadius: 10, border: '1px solid #164e63', background: '#08131d', padding: 12, display: 'grid', gap: 8 }}>
+              <strong style={{ color: '#a5f3fc' }}>OpenAI 流式回传</strong>
+              <div
+                ref={pipelineStreamRef}
+                style={{
+                  maxHeight: 260,
+                  overflow: 'auto',
+                  whiteSpace: 'pre-wrap',
+                  color: '#dbeafe',
+                  lineHeight: 1.7,
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, monospace'
+                }}
+              >
+                {pipelineJob.streamText || pipelineJob.previewText || '模型尚未开始返回正文，当前先显示进度心跳。'}
+              </div>
+            </div>
           </div>
         </section>
       ) : null}
@@ -716,32 +800,20 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
         <section style={{ borderRadius: 12, border: '1px solid #854d0e', background: '#17130a', padding: 18, display: 'grid', gap: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start', flexWrap: 'wrap' }}>
             <div style={{ display: 'grid', gap: 6 }}>
-              <h2 style={{ margin: 0, fontSize: 21 }}>确认镜头拆解</h2>
-              <p style={{ margin: 0, color: '#fcd34d', lineHeight: 1.7 }}>已根据脚本文案拆成 {pendingScript.shots.length} 个镜头。确认后才会创建视频项目并继续生成。</p>
+              <h2 style={{ margin: 0, fontSize: 21 }}>确认脚本</h2>
+              <p style={{ margin: 0, color: '#fcd34d', lineHeight: 1.7 }}>{autoRender ? '确认后会创建真实视频项目，并自动提交成片生成任务。' : '确认后只创建视频项目和模板预览；进入详情页后需要手动点击“开始生成成片”。'}</p>
             </div>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Link href={pendingScript.href} {...newWindowLinkProps} style={linkButtonStyle('secondary')}>打开脚本详情</Link>
-              <button type="button" onClick={confirmScriptAndContinue} disabled={busy} style={{ ...primaryButtonStyle, minWidth: 190 }}>
-                {busy ? '继续中...' : '确认镜头并继续生成'}
+              <button type="button" onClick={confirmScriptAndContinue} disabled={busy} style={{ ...primaryButtonStyle, minWidth: 210 }}>
+                {busy ? '继续中...' : autoRender ? '确认脚本并开始生成' : '确认脚本并创建项目'}
               </button>
             </div>
           </div>
-          <div style={{ display: 'grid', gap: 10, maxHeight: 560, overflow: 'auto', paddingRight: 4 }}>
-            {pendingScript.shots.map((shot) => (
-              <div key={shot.order} style={{ borderRadius: 10, border: '1px solid #3f3215', background: '#111823', padding: 13, display: 'grid', gridTemplateColumns: '34px minmax(0, 1fr) 88px', gap: 12, alignItems: 'start' }}>
-                <div style={{ width: 30, height: 30, borderRadius: 8, background: '#0f172a', color: '#fde68a', display: 'grid', placeItems: 'center', fontWeight: 800 }}>{shot.order}</div>
-                <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
-                  <strong style={{ color: '#f8fafc', lineHeight: 1.45 }}>{shot.title}</strong>
-                  <span style={{ color: '#cbd5e1', lineHeight: 1.65 }}>旁白：{shot.voiceover}</span>
-                  <span style={{ color: '#94a3b8', lineHeight: 1.55 }}>字幕：{shot.subtitle}</span>
-                  <span style={{ color: '#7dd3fc', lineHeight: 1.55 }}>画面：{shot.visualPrompt}</span>
-                </div>
-                <div style={{ display: 'grid', gap: 7, justifyItems: 'end' }}>
-                  <StatusBadge text={shot.order === 1 ? '开场' : shot.order === pendingScript.shots.length ? '结尾' : '镜头'} tone={shot.order === 1 ? 'info' : shot.order === pendingScript.shots.length ? 'warning' : 'neutral'} />
-                  <span style={{ color: '#cbd5e1', fontWeight: 800 }}>{shot.durationSec}s</span>
-                </div>
-              </div>
-            ))}
+          <div style={{ borderRadius: 10, border: '1px solid #3f3215', background: '#111823', padding: 14, display: 'grid', gap: 10 }}>
+            <strong style={{ color: '#f8fafc', lineHeight: 1.45 }}>{pendingScript.title}</strong>
+            <span style={{ color: '#cbd5e1', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>{pendingScript.hook || '脚本已生成，建议打开脚本详情查看完整正文后继续。'}</span>
+            <span style={{ color: '#7dd3fc', lineHeight: 1.6 }}>下一步不是本地拆镜确认，而是真实创建视频项目，再由 OpenAI 整片规划 storyboard。</span>
           </div>
         </section>
       ) : null}
@@ -773,7 +845,7 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
             >
               停止当前任务
             </button>
-            <button type="button" onClick={resetSteps} style={secondaryButtonStyle}>重置状态</button>
+            <button type="button" onClick={() => resetSteps()} style={secondaryButtonStyle}>重置状态</button>
           </div>
         </div>
         {hasDocumentInput ? (
@@ -871,7 +943,7 @@ function formatPipelineStage(stage: string) {
     'generating-topics': '提炼选题',
     'topics-ready': '选题完成',
     'generating-script': '正在生成脚本',
-    'requesting-model': '等待 MiniMax',
+    'requesting-model': '等待 OpenAI',
     'validating-result': '校验脚本结构',
     completed: '已完成',
     failed: '处理失败',

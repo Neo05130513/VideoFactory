@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { navigatePendingWindow, openPendingWindow } from '../_components/open-new-window';
 
 type AspectRatio = '9:16' | '16:9';
-type ProjectTemplate = 'ai-explainer-short-v1' | 'tech-explainer-v1' | 'tutorial-demo-v1';
+type ProjectTemplate = 'ai-explainer-short-v1' | 'hyperframes-explainer-v1' | 'tech-explainer-v1' | 'tutorial-demo-v1';
 
 export function ScriptActions({ scriptId, tutorialId, hasProject, projectIds = [] }: { scriptId: string; tutorialId: string; hasProject: boolean; projectIds?: string[] }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -15,7 +15,7 @@ export function ScriptActions({ scriptId, tutorialId, hasProject, projectIds = [
   async function createVideoProject() {
     const nextWindow = openPendingWindow();
     setBusy('create');
-    setMessage('已确认当前脚本镜头，正在创建视频项目...');
+    setMessage('已确认当前脚本，正在创建视频项目...');
     try {
       const response = await fetch('/api/videos/create', {
         method: 'POST',
@@ -90,14 +90,15 @@ export function ScriptActions({ scriptId, tutorialId, hasProject, projectIds = [
         <button onClick={() => setAspectRatio('9:16')} style={optionButtonStyle(aspectRatio === '9:16')}>竖屏 9:16</button>
         <button onClick={() => setAspectRatio('16:9')} style={optionButtonStyle(aspectRatio === '16:9')}>横屏 16:9</button>
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: 8 }}>
         <button onClick={() => setTemplate('ai-explainer-short-v1')} style={optionButtonStyle(template === 'ai-explainer-short-v1')}>AI 科普</button>
+        <button onClick={() => setTemplate('hyperframes-explainer-v1')} style={optionButtonStyle(template === 'hyperframes-explainer-v1')}>Hyperframes</button>
         <button onClick={() => setTemplate('tech-explainer-v1')} style={optionButtonStyle(template === 'tech-explainer-v1')}>技术解释</button>
         <button onClick={() => setTemplate('tutorial-demo-v1')} style={optionButtonStyle(template === 'tutorial-demo-v1')}>教程演示</button>
       </div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
         <button onClick={createVideoProject} disabled={busy !== null} style={primaryButtonStyle(busy === 'create')}>
-          {busy === 'create' ? '创建中...' : hasProject ? '确认镜头并再创建一个视频项目' : '确认镜头并创建视频项目'}
+          {busy === 'create' ? '创建中...' : hasProject ? '用当前脚本再创建一个视频项目' : '用当前脚本创建视频项目'}
         </button>
         <button onClick={duplicateScript} disabled={busy !== null} style={secondaryButtonStyle(busy === 'duplicate')}>
           {busy === 'duplicate' ? '复制中...' : '复制为新版本'}

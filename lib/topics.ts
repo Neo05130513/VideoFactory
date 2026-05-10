@@ -1,4 +1,4 @@
-import { generateTextWithMiniMax, isMiniMaxTextConfigured } from './providers/minimax';
+import { generateText, isTextGenerationConfigured } from './providers/text';
 import { nowIso, simpleId } from './storage';
 import { Topic, Tutorial } from './types';
 
@@ -34,7 +34,7 @@ function extractJsonObject(raw: string) {
 }
 
 function buildTopicError(message: string) {
-  return new Error(`MiniMax 选题生成失败：${message}`);
+  return new Error(`AI 选题生成失败：${message}`);
 }
 
 function normalizeTopicDraft(tutorial: Tutorial, raw: TopicDraft): Topic {
@@ -63,8 +63,8 @@ function normalizeTopicDraft(tutorial: Tutorial, raw: TopicDraft): Topic {
 }
 
 export async function generateTopics(tutorial: Tutorial): Promise<Topic[]> {
-  if (!await isMiniMaxTextConfigured()) {
-    throw buildTopicError('未配置 MINIMAX_API_KEY，已停止选题生成。');
+  if (!await isTextGenerationConfigured()) {
+    throw buildTopicError('未配置 OPENAI_API_KEY，已停止选题生成。');
   }
 
   const systemPrompt = [
@@ -95,20 +95,20 @@ export async function generateTopics(tutorial: Tutorial): Promise<Topic[]> {
   }, null, 2);
 
   try {
-    const generated = await generateTextWithMiniMax({
+    const generated = await generateText({
       systemPrompt,
       userPrompt,
       temperature: 0.35,
-      maxTokens: Number(process.env.MINIMAX_TOPIC_MAX_TOKENS || 1800),
-      timeoutMs: Number(process.env.MINIMAX_TOPIC_TIMEOUT_MS || 1_800_000),
-      maxRetries: Number(process.env.MINIMAX_TOPIC_MAX_RETRIES || 2)
+      maxTokens: Number(process.env.OPENAI_TOPIC_MAX_TOKENS || process.env.MINIMAX_TOPIC_MAX_TOKENS || 1800),
+      timeoutMs: Number(process.env.OPENAI_TOPIC_TIMEOUT_MS || process.env.MINIMAX_TOPIC_TIMEOUT_MS || 1_800_000),
+      maxRetries: Number(process.env.OPENAI_TOPIC_MAX_RETRIES || process.env.MINIMAX_TOPIC_MAX_RETRIES || 2)
     });
     if (!generated?.text) {
       throw buildTopicError('模型未返回可用文本。');
     }
     return [normalizeTopicDraft(tutorial, extractJsonObject(generated.text))];
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('MiniMax 选题生成失败：')) {
+    if (error instanceof Error && error.message.startsWith('AI 选题生成失败：')) {
       throw error;
     }
     throw buildTopicError(error instanceof Error ? error.message : String(error));

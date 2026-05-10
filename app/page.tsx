@@ -1,13 +1,28 @@
 export const dynamic = 'force-dynamic';
 
+import nextDynamic from 'next/dynamic';
 import Link from 'next/link';
 import { StudioShell } from './_components/studio-shell';
 import { linkButtonStyle, newWindowLinkProps, Panel, SectionTitle, StatusBadge, subtlePanelStyle } from './_components/studio-ui';
 import { getDashboardViewModel } from './_view-models/dashboard';
-import { StartMakingClient } from './start-making-client';
 import { getCurrentUser } from '@/lib/auth';
 import { getPerformanceSettings } from '@/lib/performance/settings';
 import { listVoiceProfiles } from '@/lib/voice-profiles';
+
+const StartMakingClient = nextDynamic(
+  () => import('./start-making-client').then((mod) => mod.StartMakingClient),
+  {
+    ssr: false,
+    loading: () => (
+      <Panel style={{ display: 'grid', gap: 12 }}>
+        <SectionTitle title="开始制作" note="正在加载交互面板..." />
+        <div style={{ ...subtlePanelStyle, padding: 16, color: '#94a3b8', lineHeight: 1.7 }}>
+          页面正在初始化，完成后才能选择比例、粘贴文案并开始生成。
+        </div>
+      </Panel>
+    )
+  }
+);
 
 export default async function StartPage() {
   const [user, dashboard, performance] = await Promise.all([
@@ -63,7 +78,7 @@ export default async function StartPage() {
             note={dashboard.firstScriptWithoutProject?.title || '暂无等待确认的脚本'}
             tone={pendingScripts ? 'warning' : 'neutral'}
             href="/scripts"
-            action={pendingScripts ? '确认镜头' : '查看脚本'}
+            action={pendingScripts ? '确认脚本' : '查看脚本'}
           />
           <ActionTile
             title="视频处理"

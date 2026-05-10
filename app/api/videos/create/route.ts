@@ -4,7 +4,7 @@ import { appendAuditLog } from '@/lib/audit';
 import { createVideoProjectFromScript } from '@/lib/videos';
 import type { VideoAspectRatio, VideoTemplate } from '@/lib/types';
 
-const templateOptions = new Set<VideoTemplate>(['tutorial-demo-v1', 'tech-explainer-v1', 'ai-explainer-short-v1']);
+const templateOptions = new Set<VideoTemplate>(['tutorial-demo-v1', 'tech-explainer-v1', 'ai-explainer-short-v1', 'hyperframes-explainer-v1']);
 
 export async function POST(request: Request) {
   const auth = await requireApiRole(['content', 'video']);

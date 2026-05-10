@@ -102,7 +102,7 @@ export function TutorialActions({ tutorialId, hasTopics, hasScripts }: { tutoria
             {processJob.currentTopicTitle ? ` · ${processJob.currentTopicTitle}` : ''}
           </div>
           <div style={{ color: '#dbeafe', lineHeight: 1.7 }}>{processJob.detail || '正在等待最新状态...'}</div>
-          <div style={{ color: '#67e8f9', lineHeight: 1.7 }}>实时文字预览：{processJob.previewText || '模型还没有返回文本，当前主要是在等待 MiniMax 响应。'}</div>
+          <div style={{ color: '#67e8f9', lineHeight: 1.7 }}>实时文字预览：{processJob.previewText || '模型还没有返回文本，当前主要是在等待 OpenAI 响应。'}</div>
         </div>
       ) : null}
       {message ? <div style={{ color: '#93c5fd', lineHeight: 1.7 }}>{message}</div> : null}
@@ -141,7 +141,7 @@ function formatProcessStage(stage: string) {
     'generating-topics': '提炼选题',
     'topics-ready': '选题完成',
     'generating-script': '正在生成脚本',
-    'requesting-model': '等待 MiniMax',
+    'requesting-model': '等待 OpenAI',
     'validating-result': '校验脚本结构',
     'script-ready': '脚本完成',
     'saving-results': '写入结果',

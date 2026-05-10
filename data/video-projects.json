@@ -1,1 +1,57 @@
-[]
+[
+  {
+    "id": "video_project_1778288697177_y5hr8o",
+    "tutorialId": "tutorial_1778288552477_b0t1gm",
+    "topicId": "topic_1778288567569_esay7j",
+    "scriptId": "script_1778288648265_5zx0tj",
+    "status": "storyboarded",
+    "template": "hyperframes-explainer-v1",
+    "title": "AI消息太多，销售团队该追哪一类",
+    "aspectRatio": "16:9",
+    "createdAt": "2026-05-09T01:04:57.176Z",
+    "updatedAt": "2026-05-09T01:04:57.189Z",
+    "visualPreset": "clarity-blue",
+    "publishScore": 0,
+    "publishTier": "pending",
+    "opsStatus": "idle",
+    "opsUpdatedAt": "2026-05-09T01:04:57.176Z"
+  },
+  {
+    "id": "video_project_1778261012258_26pdvu",
+    "tutorialId": "tutorial_1778245688142_n940oz",
+    "topicId": "topic_1778258257237_hc0763",
+    "scriptId": "script_1778258347538_ms17kl",
+    "status": "completed",
+    "template": "hyperframes-explainer-v1",
+    "title": "实体企业先用AI提效的客户管理流程",
+    "aspectRatio": "9:16",
+    "createdAt": "2026-05-08T17:23:32.258Z",
+    "updatedAt": "2026-05-08T23:54:20.275Z",
+    "outputPath": "/generated/remotion/video_project_1778261012258_26pdvu/output.mp4",
+    "lastRenderAttemptAt": "2026-05-08T23:37:22.444Z",
+    "visualPreset": "midnight-cyan",
+    "publishScore": 100,
+    "publishTier": "publishable",
+    "opsStatus": "idle",
+    "opsUpdatedAt": "2026-05-08T17:23:32.258Z"
+  },
+  {
+    "id": "video_project_1778258874134_s0pu4w",
+    "tutorialId": "tutorial_1778245688142_n940oz",
+    "topicId": "topic_1778258257237_hc0763",
+    "scriptId": "script_1778258347538_ms17kl",
+    "status": "completed",
+    "template": "hyperframes-explainer-v1",
+    "title": "实体企业先用AI提效的客户管理流程",
+    "aspectRatio": "9:16",
+    "createdAt": "2026-05-08T16:47:54.134Z",
+    "updatedAt": "2026-05-08T17:03:53.816Z",
+    "outputPath": "/generated/remotion/video_project_1778258874134_s0pu4w/output.mp4",
+    "lastRenderAttemptAt": "2026-05-08T16:54:27.113Z",
+    "visualPreset": "midnight-cyan",
+    "publishScore": 100,
+    "publishTier": "publishable",
+    "opsStatus": "idle",
+    "opsUpdatedAt": "2026-05-08T16:47:54.134Z"
+  }
+]

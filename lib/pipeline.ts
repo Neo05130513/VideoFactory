@@ -15,6 +15,8 @@ export interface TutorialPipelineProgress {
   progress: number;
   detail?: string;
   previewText?: string;
+  streamText?: string;
+  persist?: boolean;
   currentTopicTitle?: string;
   currentTopicIndex?: number;
   totalTopics?: number;
@@ -31,6 +33,34 @@ export interface TutorialPipelineResult {
     scriptId: string;
     shots: ReturnType<typeof buildScriptShotBreakdown>;
   }>;
+}
+
+async function mergePipelineArtifacts(params: {
+  tutorial: Tutorial;
+  tutorialId: string;
+  topics: Topic[];
+  scripts: Script[];
+}) {
+  const [latestTutorials, latestTopics, latestScripts] = await Promise.all([
+    readJsonFile<Tutorial[]>('data/tutorials.json'),
+    readJsonFile<Topic[]>('data/topics.json'),
+    readJsonFile<Script[]>('data/scripts.json')
+  ]);
+
+  const tutorialIndex = latestTutorials.findIndex((item) => item.id === params.tutorialId);
+  if (tutorialIndex === -1) {
+    throw new Error('Tutorial no longer exists');
+  }
+
+  latestTutorials[tutorialIndex] = params.tutorial;
+  const nextTopics = [...params.topics, ...latestTopics.filter((item) => item.tutorialId !== params.tutorialId)];
+  const nextScripts = [...params.scripts, ...latestScripts.filter((item) => item.tutorialId !== params.tutorialId)];
+
+  await Promise.all([
+    writeJsonFile('data/tutorials.json', latestTutorials),
+    writeJsonFile('data/topics.json', nextTopics),
+    writeJsonFile('data/scripts.json', nextScripts)
+  ]);
 }
 
 function throwIfPipelineAborted(signal?: AbortSignal) {
@@ -168,7 +198,7 @@ export async function processTutorialPipeline(
   await emitProgress({
     stage: 'topics-ready',
     progress: 46,
-    detail: totalTopics ? 'MiniMax 已生成主选题，开始撰写主脚本。' : '没有生成可用选题。',
+    detail: totalTopics ? 'AI 已生成主选题，开始撰写主脚本。' : '没有生成可用选题。',
     totalTopics
   });
 
@@ -188,7 +218,7 @@ export async function processTutorialPipeline(
       currentTopicTitle: topic.title
     });
 
-    // Avoid bursty parallel text-generation requests that make MiniMax time out.
+    // Avoid bursty parallel text-generation requests that make upstream models time out.
     const nextScripts = await generateScripts(topic, parsed, {
       signal: options?.signal,
       onProgress: async (progress) => {
@@ -219,19 +249,18 @@ export async function processTutorialPipeline(
       currentTopicTitle: topic.title
     });
   }
-  const nextScripts = [...generatedScripts, ...scripts.filter((item) => item.tutorialId !== tutorialId)];
-
   await emitProgress({
     stage: 'saving-results',
     progress: 94,
     detail: '正在写入教程、选题和脚本结果。'
   });
   throwIfPipelineAborted(options?.signal);
-  await Promise.all([
-    writeJsonFile('data/tutorials.json', tutorials),
-    writeJsonFile('data/topics.json', nextTopics),
-    writeJsonFile('data/scripts.json', nextScripts)
-  ]);
+  await mergePipelineArtifacts({
+    tutorial: parsed,
+    tutorialId,
+    topics: generatedTopics,
+    scripts: generatedScripts
+  });
 
   const result = {
     tutorial: parsed,

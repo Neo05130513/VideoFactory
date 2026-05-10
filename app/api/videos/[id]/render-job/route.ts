@@ -5,7 +5,7 @@ export async function GET(
   _request: Request,
   { params }: { params: { id: string } }
 ) {
-  await processRenderQueue();
+  void processRenderQueue();
   const job = await getLatestRenderJob(params.id);
   return NextResponse.json({ ok: true, job });
 }

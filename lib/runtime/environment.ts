@@ -41,6 +41,7 @@ export async function getRuntimeStatus() {
   ]);
 
   return {
+    openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
     minimaxConfigured: Boolean(process.env.MINIMAX_API_KEY),
     ffmpegInstalled,
     ffmpegCommand: getExecutablePath('ffmpeg', 'FFMPEG_PATH'),

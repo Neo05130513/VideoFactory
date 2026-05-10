@@ -15,13 +15,17 @@
     "lint": "next lint",
     "remotion:preview": "remotion preview remotion/index.tsx --props=remotion/fixtures/ai-explainer-short.json",
     "remotion:studio:ai": "remotion preview remotion/index.tsx --props=remotion/fixtures/ai-explainer-short.json",
+    "remotion:studio:tech": "remotion preview remotion/index.tsx --props=remotion/fixtures/tech-explainer.json",
+    "remotion:studio:tutorial": "remotion preview remotion/index.tsx --props=remotion/fixtures/tutorial-demo.json",
     "remotion:studio:ai:compact": "remotion preview remotion/index.tsx --props=remotion/fixtures/ai-explainer-short-compact.json",
     "remotion:studio:ai:landscape": "remotion preview remotion/index.tsx --props=remotion/fixtures/ai-explainer-short-landscape.json",
     "remotion:studio:ai:longform": "remotion preview remotion/index.tsx --props=remotion/fixtures/ai-explainer-short-longform.json",
     "remotion:check:ai": "remotion compositions remotion/index.tsx --props=remotion/fixtures/ai-explainer-short.json && remotion compositions remotion/index.tsx --props=remotion/fixtures/ai-explainer-short-compact.json && remotion compositions remotion/index.tsx --props=remotion/fixtures/ai-explainer-short-landscape.json && remotion compositions remotion/index.tsx --props=remotion/fixtures/ai-explainer-short-longform.json",
+    "remotion:check:templates": "remotion compositions remotion/index.tsx --props=remotion/fixtures/ai-explainer-short.json && remotion compositions remotion/index.tsx --props=remotion/fixtures/hyperframes-explainer.json && remotion compositions remotion/index.tsx --props=remotion/fixtures/tech-explainer.json && remotion compositions remotion/index.tsx --props=remotion/fixtures/tutorial-demo.json",
     "remotion:render": "remotion render remotion/index.tsx AiExplainerShort public/generated/remotion/manual-output.mp4 --props=remotion/fixtures/ai-explainer-short.json",
     "remotion:render:ai": "remotion render remotion/index.tsx AiExplainerShort public/generated/remotion/ai-explainer-short.mp4 --props=remotion/fixtures/ai-explainer-short.json",
-    "db:seed": "node --experimental-strip-types ./scripts/seed-db.ts"
+    "db:seed": "node --experimental-strip-types ./scripts/seed-db.ts",
+    "remotion:studio:hyperframes": "remotion preview remotion/index.tsx --props=remotion/fixtures/hyperframes-explainer.json"
   },
   "dependencies": {
     "@remotion/bundler": "4.0.450",

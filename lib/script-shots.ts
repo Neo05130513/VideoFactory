@@ -66,35 +66,68 @@ function isLowSignalLine(value: string) {
   return false;
 }
 
-function splitNarrativeClauses(value: string) {
+function splitLongSentence(sentence: string, maxChars = 92) {
+  const normalized = stripDirectorNotes(sentence);
+  if (!normalized) return [];
+  if (normalized.length <= maxChars) return [normalized];
+
+  const phrases = normalized
+    .split(/[，、]/)
+    .map((item) => stripDirectorNotes(item))
+    .filter(Boolean);
+  if (phrases.length <= 1) return normalized.match(new RegExp(`.{1,${maxChars}}`, 'g')) || [normalized];
+
+  const chunks: string[] = [];
+  let current = '';
+  for (const phrase of phrases) {
+    const next = current ? `${current}，${phrase}` : phrase;
+    if (current && next.length > maxChars && current.length >= 36) {
+      chunks.push(current);
+      current = phrase;
+      continue;
+    }
+    current = next;
+  }
+  if (current) chunks.push(current);
+  return chunks;
+}
+
+function mergeShortTail(chunks: string[], maxChars = 108) {
+  const merged = [...chunks];
+  const tail = merged[merged.length - 1];
+  const previous = merged[merged.length - 2];
+  if (tail && previous && tail.length < 45 && previous.length + tail.length + 1 <= maxChars) {
+    merged.splice(merged.length - 2, 2, `${previous}。${tail}`);
+  }
+  return merged;
+}
+
+function splitNarrativeChunks(value: string) {
   const normalized = stripDirectorNotes(value);
   if (!normalized) return [];
 
-  const segments = normalized
+  const units = normalized
     .split(/[。！？；]/)
-    .flatMap((sentence) => {
-      const trimmed = sentence.trim();
-      if (!trimmed) return [];
-      if (trimmed.length <= 24) return [trimmed];
+    .map((sentence) => stripDirectorNotes(sentence))
+    .filter((sentence) => sentence && !isLowSignalLine(sentence))
+    .flatMap((sentence) => splitLongSentence(sentence));
 
-      return trimmed
-        .split(/[，、]/)
-        .map((item) => stripDirectorNotes(item))
-        .filter((item) => item.length >= 5);
-    })
-    .map((item) => stripDirectorNotes(item))
-    .filter((item) => !isLowSignalLine(item));
-
-  const merged: string[] = [];
-  for (const segment of segments) {
-    const previous = merged[merged.length - 1];
-    if (previous && previous.length < 8 && previous.length + segment.length <= 28) {
-      merged[merged.length - 1] = `${previous}，${segment}`;
+  const chunks: string[] = [];
+  let current = '';
+  for (const unit of units) {
+    const next = current ? `${current}。${unit}` : unit;
+    if (current && next.length > 92 && current.length >= 46) {
+      chunks.push(current);
+      current = unit;
       continue;
     }
-    merged.push(segment);
+    current = next;
   }
-  return merged;
+  if (current) chunks.push(current);
+
+  return mergeShortTail(chunks)
+    .map((item) => stripDirectorNotes(item))
+    .filter((item) => !isLowSignalLine(item));
 }
 
 function clip(value: string, maxLength: number) {
@@ -151,9 +184,9 @@ function splitBodyLines(script: Script, tutorial?: Tutorial) {
       const parsed = parseBodyShot(line, 1);
       if (!parsed) return [];
 
-      const clauses = splitNarrativeClauses(parsed.voiceover);
-      if (clauses.length >= 2 && parsed.voiceover.length >= 34) {
-        return clauses.map((clause) => `${parsed.title}：${clause}`);
+      const chunks = splitNarrativeChunks(parsed.voiceover);
+      if (chunks.length >= 2 && parsed.voiceover.length >= 70) {
+        return chunks.map((chunk) => `${parsed.title}：${chunk}`);
       }
       return line;
     })

@@ -13,6 +13,7 @@ type ProbePayload = {
   source: string;
   timestamp: string;
   runtime: {
+    openaiConfigured: boolean;
     minimaxConfigured: boolean;
     ffmpegInstalled: boolean;
     ffmpegCommand: string;
@@ -29,6 +30,8 @@ type ProbePayload = {
     nodeVersion: string;
   };
   env: {
+    openaiConfigured: boolean;
+    openaiBaseUrl: string;
     minimaxConfigured: boolean;
     minimaxHost: string;
   };
@@ -90,6 +93,8 @@ export function ProbeClientPanel() {
               <ResultRow label="导入归档目录" value={payload.runtime.importsRoot} />
               <ResultRow label="导入归档可写" value={payload.runtime.importsDirectoryWritable ? '可写' : '不可写'} />
               <ResultRow label="Remotion 依赖" value={payload.runtime.remotionDependenciesInstalled ? '可解析' : '不可解析'} />
+              <ResultRow label="OpenAI Base URL" value={payload.env.openaiBaseUrl} />
+              <ResultRow label="OpenAI Key" value={payload.env.openaiConfigured ? '已配置' : '未配置'} />
               <ResultRow label="MiniMax Host" value={payload.env.minimaxHost} />
               <ResultRow label="MiniMax Key" value={payload.env.minimaxConfigured ? '已配置' : '未配置'} />
               <ResultRow label="ffmpeg 命令" value={payload.runtime.ffmpegCommand} />

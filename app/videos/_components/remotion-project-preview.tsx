@@ -3,12 +3,14 @@
 import { Player } from '@remotion/player';
 import type { ComponentType } from 'react';
 import { AiExplainerShort, getAiExplainerDurationInFrames } from '@/remotion/AiExplainerShort';
+import { HyperframesExplainer, getHyperframesDurationInFrames } from '@/remotion/HyperframesExplainer';
 import { TechExplainer, getTechDurationInFrames } from '@/remotion/TechExplainer';
 import { TutorialDemo, getDurationInFrames } from '@/remotion/TutorialDemo';
 import type { RemotionVideoInput } from '@/remotion/types';
 
 const componentByTemplate = {
   'ai-explainer-short-v1': AiExplainerShort,
+  'hyperframes-explainer-v1': HyperframesExplainer,
   'tech-explainer-v1': TechExplainer,
   'tutorial-demo-v1': TutorialDemo
 } as const;
@@ -19,6 +21,7 @@ function getPreviewComponent(template: string): ComponentType<RemotionVideoInput
 
 function getDuration(input: RemotionVideoInput) {
   if (input.project.template === 'ai-explainer-short-v1') return getAiExplainerDurationInFrames(input);
+  if (input.project.template === 'hyperframes-explainer-v1') return getHyperframesDurationInFrames(input);
   if (input.project.template === 'tech-explainer-v1') return getTechDurationInFrames(input);
   return getDurationInFrames(input);
 }

@@ -1,4 +1,4 @@
-import { generateTextWithMiniMax, isMiniMaxTextConfigured } from './providers/minimax';
+import { generateText, isTextGenerationConfigured } from './providers/text';
 import { simpleId } from './storage';
 import type {
   Script,
@@ -166,12 +166,12 @@ function extractJsonObject<T>(raw: string): T {
   const start = source.indexOf('{');
   const end = source.lastIndexOf('}');
   if (start === -1 || end === -1 || end <= start) {
-    throw new Error('MiniMax response did not contain a JSON object');
+    throw new Error('AI response did not contain a JSON object');
   }
   return JSON.parse(source.slice(start, end + 1)) as T;
 }
 
-async function extractJsonObjectWithMiniMaxRepair<T>(params: {
+async function extractJsonObjectWithAIRepair<T>(params: {
   raw: string;
   responseKind: string;
   requiredShape: string;
@@ -179,7 +179,7 @@ async function extractJsonObjectWithMiniMaxRepair<T>(params: {
   try {
     return extractJsonObject<T>(params.raw);
   } catch (parseError) {
-    const repaired = await generateTextWithMiniMax({
+    const repaired = await generateText({
       systemPrompt: [
         '你是 JSON 结构修复器。',
         '你只能把输入修成唯一一个合法 JSON 对象，不要输出 Markdown，不要解释。',
@@ -194,9 +194,9 @@ async function extractJsonObjectWithMiniMaxRepair<T>(params: {
         rawResponse: extractJsonCandidate(params.raw)
       }, null, 2),
       temperature: 0,
-      maxTokens: Number(process.env.MINIMAX_STORYBOARD_JSON_REPAIR_MAX_TOKENS || 6000),
-      timeoutMs: Number(process.env.MINIMAX_STORYBOARD_JSON_REPAIR_TIMEOUT_MS || 86_400_000),
-      maxRetries: Number(process.env.MINIMAX_STORYBOARD_JSON_REPAIR_MAX_RETRIES || 1)
+      maxTokens: Number(process.env.OPENAI_STORYBOARD_JSON_REPAIR_MAX_TOKENS || process.env.MINIMAX_STORYBOARD_JSON_REPAIR_MAX_TOKENS || 6000),
+      timeoutMs: Number(process.env.OPENAI_STORYBOARD_JSON_REPAIR_TIMEOUT_MS || process.env.MINIMAX_STORYBOARD_JSON_REPAIR_TIMEOUT_MS || 86_400_000),
+      maxRetries: Number(process.env.OPENAI_STORYBOARD_JSON_REPAIR_MAX_RETRIES || process.env.MINIMAX_STORYBOARD_JSON_REPAIR_MAX_RETRIES || 1)
     });
 
     if (!repaired) {
@@ -207,7 +207,7 @@ async function extractJsonObjectWithMiniMaxRepair<T>(params: {
       return extractJsonObject<T>(repaired.text);
     } catch (repairError) {
       throw new Error(
-        `MiniMax ${params.responseKind} JSON repair failed: parse=${describeError(parseError)}; repair=${describeError(repairError)}`
+        `AI ${params.responseKind} JSON repair failed: parse=${describeError(parseError)}; repair=${describeError(repairError)}`
       );
     }
   }
@@ -304,7 +304,7 @@ function ensureStoryboardShape(project: VideoProject, planned: PlannedStoryboard
     .filter((scene): scene is VideoScene => Boolean(scene));
 
   if (normalized.length < 4) {
-    throw new Error('MiniMax storyboard returned too few valid scenes');
+    throw new Error('AI storyboard returned too few valid scenes');
   }
 
   normalized[0] = {
@@ -636,7 +636,7 @@ async function rewriteStoryboardDisplayLayer(params: {
     feedback ? `上轮终审反馈：${feedback}` : ''
   ].filter(Boolean).join('\n');
 
-  const generated = await generateTextWithMiniMax({
+  const generated = await generateText({
     systemPrompt,
     userPrompt: buildDisplayRewritePrompt({
       project: params.project,
@@ -644,16 +644,16 @@ async function rewriteStoryboardDisplayLayer(params: {
       planned: params.planned
     }),
     temperature: 0.12,
-    maxTokens: Number(process.env.MINIMAX_STORYBOARD_REWRITE_MAX_TOKENS || 5000),
-    timeoutMs: Number(process.env.MINIMAX_STORYBOARD_REWRITE_TIMEOUT_MS || 86_400_000),
-    maxRetries: Number(process.env.MINIMAX_STORYBOARD_REWRITE_MAX_RETRIES || 2)
+    maxTokens: Number(process.env.OPENAI_STORYBOARD_REWRITE_MAX_TOKENS || process.env.MINIMAX_STORYBOARD_REWRITE_MAX_TOKENS || 5000),
+    timeoutMs: Number(process.env.OPENAI_STORYBOARD_REWRITE_TIMEOUT_MS || process.env.MINIMAX_STORYBOARD_REWRITE_TIMEOUT_MS || 86_400_000),
+    maxRetries: Number(process.env.OPENAI_STORYBOARD_REWRITE_MAX_RETRIES || process.env.MINIMAX_STORYBOARD_REWRITE_MAX_RETRIES || 2)
   });
 
   if (!generated) {
-    throw new Error('MiniMax storyboard display rewrite returned no content');
+    throw new Error('AI storyboard display rewrite returned no content');
   }
 
-  const rewritten = await extractJsonObjectWithMiniMaxRepair<DisplayRewriteResult>({
+  const rewritten = await extractJsonObjectWithAIRepair<DisplayRewriteResult>({
     raw: generated.text,
     responseKind: 'storyboard display rewrite',
     requiredShape: '顶层对象必须是 {"scenes":[{"order":1,"headline":"...","subtitle":"...","emphasis":"...","cards":["..."],"keywords":["..."]}]}。每个 scene 都必须带 order。'
@@ -661,7 +661,7 @@ async function rewriteStoryboardDisplayLayer(params: {
   return mergeDisplayRewrite(params.planned, rewritten);
 }
 
-async function reviewStoryboardWithMiniMax(params: {
+async function reviewStoryboardWithAI(params: {
   project: VideoProject;
   script: Script;
   planned: PlannedStoryboard;
@@ -694,20 +694,20 @@ async function reviewStoryboardWithMiniMax(params: {
     '输出格式：{"score":93,"issues":["..."],"reasons":["scene 3 ..."],"recommendedAction":"accept"}。'
   ].join('\n');
 
-  const generated = await generateTextWithMiniMax({
+  const generated = await generateText({
     systemPrompt,
     userPrompt: buildReviewPrompt(params),
     temperature: 0.05,
-    maxTokens: Number(process.env.MINIMAX_STORYBOARD_REVIEW_MAX_TOKENS || 3000),
-    timeoutMs: Number(process.env.MINIMAX_STORYBOARD_REVIEW_TIMEOUT_MS || 86_400_000),
-    maxRetries: Number(process.env.MINIMAX_STORYBOARD_REVIEW_MAX_RETRIES || 2)
+    maxTokens: Number(process.env.OPENAI_STORYBOARD_REVIEW_MAX_TOKENS || process.env.MINIMAX_STORYBOARD_REVIEW_MAX_TOKENS || 3000),
+    timeoutMs: Number(process.env.OPENAI_STORYBOARD_REVIEW_TIMEOUT_MS || process.env.MINIMAX_STORYBOARD_REVIEW_TIMEOUT_MS || 86_400_000),
+    maxRetries: Number(process.env.OPENAI_STORYBOARD_REVIEW_MAX_RETRIES || process.env.MINIMAX_STORYBOARD_REVIEW_MAX_RETRIES || 2)
   });
 
   if (!generated) {
-    throw new Error('MiniMax storyboard review returned no content');
+    throw new Error('AI storyboard review returned no content');
   }
 
-  const review = normalizeReviewResult(await extractJsonObjectWithMiniMaxRepair<Partial<StoryboardQuality>>({
+  const review = normalizeReviewResult(await extractJsonObjectWithAIRepair<Partial<StoryboardQuality>>({
     raw: generated.text,
     responseKind: 'storyboard review',
     requiredShape: '顶层对象必须是 {"score":93,"issues":["..."],"reasons":["..."],"recommendedAction":"accept"}。recommendedAction 只能是 accept、rewrite_display、regenerate_storyboard。'
@@ -785,20 +785,20 @@ async function generateStoryboardAttempt(params: {
     '输出格式：{"videoTitle":"...","targetDurationSec":35,"scenes":[{"shotType":"title","layout":"hero","visualType":"slide","durationSec":4,"transition":"fade","voiceover":"...","headline":"...","subtitle":"...","emphasis":"...","cards":["..."],"keywords":["..."],"chartData":[1,2,3,4,5],"visualPrompt":"..."}]}。',
   ].filter(Boolean).join('\n');
 
-  const generated = await generateTextWithMiniMax({
+  const generated = await generateText({
     systemPrompt,
     userPrompt: buildPlannerPrompt(params.project, params.script, params.topic, params.tutorial),
     temperature: params.retryReview ? 0.42 : 0.35,
-    maxTokens: Number(process.env.MINIMAX_STORYBOARD_MAX_TOKENS || 12000),
-    timeoutMs: Number(process.env.MINIMAX_STORYBOARD_TIMEOUT_MS || 86_400_000),
-    maxRetries: Number(process.env.MINIMAX_STORYBOARD_MAX_RETRIES || 2)
+    maxTokens: Number(process.env.OPENAI_STORYBOARD_MAX_TOKENS || process.env.MINIMAX_STORYBOARD_MAX_TOKENS || 12000),
+    timeoutMs: Number(process.env.OPENAI_STORYBOARD_TIMEOUT_MS || process.env.MINIMAX_STORYBOARD_TIMEOUT_MS || 86_400_000),
+    maxRetries: Number(process.env.OPENAI_STORYBOARD_MAX_RETRIES || process.env.MINIMAX_STORYBOARD_MAX_RETRIES || 2)
   });
 
   if (!generated) {
-    throw new Error('MiniMax storyboard generation returned no content');
+    throw new Error('AI storyboard generation returned no content');
   }
 
-  let planned = await extractJsonObjectWithMiniMaxRepair<PlannedStoryboard>({
+  let planned = await extractJsonObjectWithAIRepair<PlannedStoryboard>({
     raw: generated.text,
     responseKind: 'storyboard planner',
     requiredShape: '顶层对象必须是 {"videoTitle":"...","scenes":[...]}，并建议附带 {"targetDurationSec":35} 作为根据最终 scene.durationSec 汇总出的结果摘要。至少 4 个 scene。每个 scene 必须包含非空的 shotType、layout、visualType、durationSec、transition、voiceover、headline、subtitle、visualPrompt；并优先使用 emphasis、cards、keywords、chartData。'
@@ -812,14 +812,14 @@ async function generateStoryboardAttempt(params: {
 
   let scenes = ensureStoryboardShape(params.project, planned);
   planned = syncPlannedStoryboard(planned, scenes);
-  let quality = await reviewStoryboardWithMiniMax({
+  let quality = await reviewStoryboardWithAI({
     project: params.project,
     script: params.script,
     planned,
     scenes
   });
 
-  const maxDisplayReviewRetries = Math.max(0, Number(process.env.MINIMAX_STORYBOARD_MAX_DISPLAY_REVIEW_RETRIES || 2));
+  const maxDisplayReviewRetries = Math.max(0, Number(process.env.OPENAI_STORYBOARD_MAX_DISPLAY_REVIEW_RETRIES || process.env.MINIMAX_STORYBOARD_MAX_DISPLAY_REVIEW_RETRIES || 2));
   let reviewDirectedRewriteCount = 0;
 
   while (
@@ -835,7 +835,7 @@ async function generateStoryboardAttempt(params: {
     });
     scenes = ensureStoryboardShape(params.project, planned);
     planned = syncPlannedStoryboard(planned, scenes);
-    quality = await reviewStoryboardWithMiniMax({
+    quality = await reviewStoryboardWithAI({
       project: params.project,
       script: params.script,
       planned,
@@ -853,15 +853,15 @@ async function generateStoryboardAttempt(params: {
   } satisfies StoryboardAttemptResult;
 }
 
-export async function planStoryboardWithMiniMax(params: {
+export async function planStoryboardWithAI(params: {
   project: VideoProject;
   script: Script;
   topic: Topic;
   tutorial: Tutorial;
 }) {
-  if (!await isMiniMaxTextConfigured()) return null;
+  if (!await isTextGenerationConfigured()) return null;
 
-  const maxGenerationAttempts = Math.max(1, Number(process.env.MINIMAX_STORYBOARD_MAX_GENERATION_ATTEMPTS || 2));
+  const maxGenerationAttempts = Math.max(1, Number(process.env.OPENAI_STORYBOARD_MAX_GENERATION_ATTEMPTS || process.env.MINIMAX_STORYBOARD_MAX_GENERATION_ATTEMPTS || 2));
   let generationRetryCount = 0;
   let retryReview: Pick<StoryboardQuality, 'issues' | 'reasons'> | undefined;
   let result: StoryboardAttemptResult | null = null;

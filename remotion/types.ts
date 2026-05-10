@@ -27,9 +27,10 @@ export interface RemotionVideoInput {
   project: {
     id: string;
     title: string;
-    template: 'tutorial-demo-v1' | 'tech-explainer-v1' | 'ai-explainer-short-v1' | string;
+    template: 'tutorial-demo-v1' | 'tech-explainer-v1' | 'ai-explainer-short-v1' | 'hyperframes-explainer-v1' | string;
     aspectRatio: '9:16' | '16:9';
     visualPreset?: string;
+    audioPath?: string;
   };
   scenes: RemotionSceneInput[];
 }

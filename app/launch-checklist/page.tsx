@@ -32,8 +32,8 @@ export default async function LaunchChecklistPage() {
   const checks = [
     {
       title: '运行环境已就绪',
-      ok: runtimeStatus.minimaxConfigured && runtimeStatus.ffmpegInstalled,
-      detail: `MiniMax ${runtimeStatus.minimaxConfigured ? '已配置' : '未配置'} / ffmpeg ${runtimeStatus.ffmpegInstalled ? '可用' : '未安装'}`,
+      ok: runtimeStatus.openaiConfigured && runtimeStatus.ffmpegInstalled,
+      detail: `OpenAI ${runtimeStatus.openaiConfigured ? '已配置' : '未配置'} / ffmpeg ${runtimeStatus.ffmpegInstalled ? '可用' : '未安装'}`,
       href: '/probe'
     },
     {
@@ -136,7 +136,7 @@ export default async function LaunchChecklistPage() {
 
           <Panel title="如果暂不建议上线，先做什么">
             <OrderedList items={[
-              '去环境页确认 MiniMax 与 ffmpeg。',
+              '去环境页确认 OpenAI 与 ffmpeg。',
               '去视频工厂清理 failed / blocked 堆积。',
               '去脚本工作台补齐待推进脚本。',
               '做一轮抽样质检，避免 completed 但质量未知。'

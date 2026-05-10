@@ -5,13 +5,13 @@
     "name": "Neo音色",
     "provider": "aliyun-cosyvoice",
     "status": "ready",
-    "samplePath": "/generated/voices/user_admin_demo/voice_profile_1776852032356_c01r5d/sample-cosyvoice.wav",
+    "samplePath": "/generated/voices/user_admin_demo/voice_profile_1776852032356_c01r5d/sample-cosyvoice-clean.wav",
     "isDefault": true,
     "createdAt": "2026-04-22T10:00:32.358Z",
-    "updatedAt": "2026-04-24T13:31:25.680Z",
-    "sampleObjectKey": "video-factory/voice-samples/user_admin_demo/voice_profile_1776852032356_c01r5d/sample-cosyvoice.wav",
+    "updatedAt": "2026-05-09T01:02:30.510Z",
+    "sampleObjectKey": "video-factory/voice-samples/user_admin_demo/voice_profile_1776852032356_c01r5d_clean_xjc1k8/sample-cosyvoice.wav",
     "sampleStorageProvider": "aliyun-oss",
-    "providerVoiceId": "cosyvoice-v2-videof1r5d-2c71d765e21343a0b3b2aa74be5bea55"
+    "providerVoiceId": "cosyvoice-v2-videofc1k8-2f39eab422174ad5ba92a2c4f2046f5c"
   },
   {
     "id": "voice_profile_cosyvoice_real_sample",

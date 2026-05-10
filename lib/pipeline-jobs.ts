@@ -1,4 +1,3 @@
-import { buildScriptShotBreakdown } from './script-shots';
 import { processTutorialPipeline } from './pipeline';
 import { nowIso, readJsonFile, simpleId, writeJsonFile } from './storage';
 import type { PipelineJob, PipelineJobResult } from './types';
@@ -8,17 +7,23 @@ const PIPELINE_JOBS_PATH = 'data/pipeline-jobs.json';
 type PipelineRuntimeStore = {
   controllers: Map<string, AbortController>;
   processing: boolean;
+  liveJobs: Map<string, PipelineJob>;
+  listeners: Map<string, Set<(job: PipelineJob) => void>>;
 };
 
 function getRuntimeStore() {
-  const globalStore = globalThis as typeof globalThis & { __videoFactoryPipelineRuntime?: PipelineRuntimeStore };
-  if (!globalStore.__videoFactoryPipelineRuntime) {
-    globalStore.__videoFactoryPipelineRuntime = {
-      controllers: new Map<string, AbortController>(),
-      processing: false
-    };
-  }
-  return globalStore.__videoFactoryPipelineRuntime;
+  const globalStore = globalThis as typeof globalThis & {
+    __videoFactoryPipelineRuntime?: Partial<PipelineRuntimeStore>;
+  };
+  const current = globalStore.__videoFactoryPipelineRuntime;
+  const runtime: PipelineRuntimeStore = {
+    controllers: current?.controllers instanceof Map ? current.controllers : new Map<string, AbortController>(),
+    processing: typeof current?.processing === 'boolean' ? current.processing : false,
+    liveJobs: current?.liveJobs instanceof Map ? current.liveJobs : new Map<string, PipelineJob>(),
+    listeners: current?.listeners instanceof Map ? current.listeners : new Map<string, Set<(job: PipelineJob) => void>>()
+  };
+  globalStore.__videoFactoryPipelineRuntime = runtime;
+  return runtime;
 }
 
 function clampProgress(value: number) {
@@ -37,18 +42,32 @@ async function writeJobs(jobs: PipelineJob[]) {
   await writeJsonFile(PIPELINE_JOBS_PATH, jobs);
 }
 
+function cloneJob(job: PipelineJob) {
+  return JSON.parse(JSON.stringify(job)) as PipelineJob;
+}
+
+function publishJob(job: PipelineJob) {
+  const runtime = getRuntimeStore();
+  const nextJob = cloneJob(job);
+  runtime.liveJobs.set(job.id, nextJob);
+  const listeners = runtime.listeners.get(job.id);
+  if (!listeners?.size) return;
+  for (const listener of listeners) {
+    try {
+      listener(cloneJob(nextJob));
+    } catch {
+    }
+  }
+}
+
+async function persistJob(updated: PipelineJob) {
+  const jobs = await readJobs();
+  const nextJobs = jobs.map((job) => job.id === updated.id ? updated : job);
+  await writeJobs(nextJobs);
+}
+
 function summarizeResult(result: Awaited<ReturnType<typeof processTutorialPipeline>>): PipelineJobResult {
   const firstScript = result.scripts[0];
-  const firstScriptShots = firstScript
-    ? buildScriptShotBreakdown(firstScript, result.tutorial).map((shot) => ({
-      order: shot.order,
-      title: shot.title,
-      voiceover: shot.voiceover,
-      subtitle: shot.subtitle,
-      visualPrompt: shot.visualPrompt,
-      durationSec: shot.durationSec
-    }))
-    : undefined;
 
   return {
     tutorialId: result.tutorial.id,
@@ -61,32 +80,38 @@ function summarizeResult(result: Awaited<ReturnType<typeof processTutorialPipeli
       hook: script.hook
     })),
     firstScriptId: firstScript?.id,
-    firstScriptTitle: firstScript?.title,
-    firstScriptShots
+    firstScriptTitle: firstScript?.title
   };
 }
 
-async function updatePipelineJob(jobId: string, patch: Partial<PipelineJob>) {
-  const jobs = await readJobs();
+async function updatePipelineJob(jobId: string, patch: Partial<PipelineJob>, options?: { persist?: boolean }) {
+  const runtime = getRuntimeStore();
   const timestamp = patch.updatedAt || nowIso();
-  let updated: PipelineJob | null = null;
+  const current = runtime.liveJobs.get(jobId) || (await readJobs()).find((job) => job.id === jobId) || null;
+  if (!current) return null;
 
-  const nextJobs = jobs.map((job) => {
-    if (job.id !== jobId) return job;
-    updated = {
-      ...job,
-      ...patch,
-      progress: typeof patch.progress === 'number' ? clampProgress(patch.progress) : job.progress,
-      updatedAt: timestamp
-    };
-    return updated;
-  });
+  const updated: PipelineJob = {
+    ...current,
+    ...patch,
+    progress: typeof patch.progress === 'number' ? clampProgress(patch.progress) : current.progress,
+    streamText: typeof patch.streamText === 'string' ? patch.streamText : patch.streamText === undefined ? current.streamText : undefined,
+    streamUpdatedAt: typeof patch.streamText === 'string'
+      ? timestamp
+      : patch.streamText === undefined
+        ? current.streamUpdatedAt
+        : undefined,
+    updatedAt: timestamp
+  };
 
-  await writeJobs(nextJobs);
+  publishJob(updated);
+  if (options?.persist !== false) {
+    await persistJob(updated);
+  }
   return updated;
 }
 
 export async function enqueuePipelineJob(tutorialId: string) {
+  const runtime = getRuntimeStore();
   const jobs = await readJobs();
   const existing = jobs.find((job) => job.tutorialId === tutorialId && (job.status === 'queued' || job.status === 'running'));
   if (existing) {
@@ -95,6 +120,9 @@ export async function enqueuePipelineJob(tutorialId: string) {
     if ((existing.totalTopics || 0) > 1) {
       await cancelPipelineJob(existing.id);
     } else {
+      if (existing.status === 'queued') {
+        void processPipelineQueue();
+      }
       return existing;
     }
   }
@@ -112,13 +140,48 @@ export async function enqueuePipelineJob(tutorialId: string) {
   };
 
   await writeJobs([job, ...jobs]);
+  runtime.liveJobs.set(job.id, cloneJob(job));
   void processPipelineQueue();
   return job;
 }
 
 export async function getPipelineJob(jobId: string) {
+  const runtime = getRuntimeStore();
   const jobs = await readJobs();
-  return jobs.find((job) => job.id === jobId) || null;
+  const persistedJob = jobs.find((job) => job.id === jobId);
+  if (!persistedJob) return null;
+  const liveJob = runtime.liveJobs.get(jobId);
+  const mergedJob = !liveJob
+    ? persistedJob
+    : cloneJob({
+      ...persistedJob,
+      ...liveJob,
+      progress: typeof liveJob.progress === 'number' ? liveJob.progress : persistedJob.progress,
+      streamText: liveJob.streamText ?? persistedJob.streamText,
+      streamUpdatedAt: liveJob.streamUpdatedAt ?? persistedJob.streamUpdatedAt
+    });
+
+  if (mergedJob.status === 'queued') {
+    void processPipelineQueue();
+  }
+
+  return cloneJob(mergedJob);
+}
+
+export function subscribePipelineJob(jobId: string, listener: (job: PipelineJob) => void) {
+  const runtime = getRuntimeStore();
+  const listeners = runtime.listeners.get(jobId) || new Set<(job: PipelineJob) => void>();
+  listeners.add(listener);
+  runtime.listeners.set(jobId, listeners);
+
+  return () => {
+    const current = runtime.listeners.get(jobId);
+    if (!current) return;
+    current.delete(listener);
+    if (!current.size) {
+      runtime.listeners.delete(jobId);
+    }
+  };
 }
 
 export async function cancelPipelineJob(jobId: string) {
@@ -143,6 +206,7 @@ export async function cancelPipelineJob(jobId: string) {
       updatedAt: nowIso()
     };
     await writeJobs(jobs.map((job) => job.id === jobId ? cancelled : job));
+    publishJob(cancelled);
     return cancelled;
   }
 
@@ -167,6 +231,7 @@ export async function processPipelineQueue() {
   try {
     const controller = new AbortController();
     runtime.controllers.set(nextJob.id, controller);
+    runtime.liveJobs.set(nextJob.id, cloneJob(nextJob));
 
     await updatePipelineJob(nextJob.id, {
       status: 'running',
@@ -185,12 +250,15 @@ export async function processPipelineQueue() {
           progress: progress.progress,
           detail: progress.detail,
           previewText: progress.previewText,
+          streamText: progress.streamText,
           currentTopicTitle: progress.currentTopicTitle,
           currentTopicIndex: progress.currentTopicIndex,
           totalTopics: progress.totalTopics,
           attempt: progress.attempt,
           maxAttempts: progress.maxAttempts,
           elapsedMs: progress.elapsedMs
+        }, {
+          persist: progress.persist !== false
         });
       }
     });

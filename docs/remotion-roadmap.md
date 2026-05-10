@@ -18,7 +18,7 @@ Cloud rendering is useful, but intentionally postponed until after the local wor
 - Remotion packages are already installed in `package.json`.
 - Remotion entry point: `remotion/index.tsx`.
 - Composition registry: `remotion/Root.tsx`.
-- Existing templates: `remotion/TutorialDemo.tsx`, `remotion/TechExplainer.tsx`.
+- Existing templates: `remotion/TutorialDemo.tsx`, `remotion/TechExplainer.tsx`, `remotion/AiExplainerShort.tsx`, `remotion/HyperframesExplainer.tsx`.
 - Render pipeline: `lib/remotion-renderer.ts`.
 - Render job orchestration: `lib/render-jobs.ts`.
 - Preview/dev command: `npm run remotion:preview`.
@@ -56,6 +56,7 @@ Acceptance:
   - Output: `/tmp/video-factory-ai-template-generated/remotion/video_project_1776945368255_uvn1ir/output.mp4`.
   - Video metadata: h264, 1080x1920, 46.06 seconds, about 17 MB.
 - Done: existing templates remain available as fallback options in the UI.
+- Done: Hyperframes-inspired experimental template is registered as `hyperframes-explainer-v1` for preview/render comparison without replacing Remotion.
 
 ## Phase 2: In-App Preview
 
@@ -116,7 +117,7 @@ Acceptance:
 
 ## Phase 4: Remotion Studio Workflow
 
-Status: first fixture added for Studio-driven template tuning.
+Status: template fixture set and first tuning workflow are in place.
 
 Goal: make template development fast and repeatable.
 
@@ -131,8 +132,11 @@ Acceptance:
 
 - Done: `remotion/fixtures/ai-explainer-short.json` provides a realistic `RemotionVideoInput`.
 - Done: `remotion/Root.tsx` uses the fixture as default Studio props.
-- Todo: add fixtures for `TechExplainer` and `TutorialDemo`.
-- Todo: document a short template-tuning workflow after the fixture set is complete.
+- Done: `remotion/fixtures/tech-explainer.json` provides a realistic `TechExplainer` input.
+- Done: `remotion/fixtures/tutorial-demo.json` provides a realistic `TutorialDemo` input.
+- Done: `remotion/fixtures/hyperframes-explainer.json` provides a realistic `HyperframesExplainer` input.
+- Done: `README.md` documents the short template-tuning workflow and template check command.
+- Todo: expand fixture coverage if future templates add new scene metadata or layout variants.
 
 ## Deferred: Cloud Rendering
 

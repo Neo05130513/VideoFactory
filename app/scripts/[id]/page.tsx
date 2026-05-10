@@ -6,7 +6,6 @@ import { StudioShell } from '../../_components/studio-shell';
 import { EmptyGuide, linkButtonStyle, MetricTile, newWindowLinkProps, Panel, SectionTitle, StatusBadge, subtlePanelStyle } from '../../_components/studio-ui';
 import { getScripts, getTopics, getTutorials, getVideoProjects } from '@/lib/queries';
 import { sanitizeScriptBlock } from '@/lib/narration';
-import { buildScriptShotBreakdown } from '@/lib/script-shots';
 import { ScriptEditor } from './script-editor';
 import { ScriptDetailActions } from './script-detail-actions';
 
@@ -24,15 +23,14 @@ export default async function ScriptDetailPage({ params }: { params: { id: strin
   const topic = topics.find((item) => item.id === script.topicId);
   const tutorial = tutorials.find((item) => item.id === script.tutorialId);
   const relatedProjects = videoProjects.filter((item) => item.scriptId === script.id);
-  const shotBreakdown = buildScriptShotBreakdown(script, tutorial);
-  const totalDurationSec = shotBreakdown.reduce((total, shot) => total + shot.durationSec, 0);
   const displayHook = sanitizeScriptBlock(script.hook);
   const displayBody = sanitizeScriptBlock(script.body);
   const displayCta = sanitizeScriptBlock(script.cta);
+  const scriptCharCount = `${displayHook}${displayBody}${displayCta}`.replace(/\s+/g, '').length;
 
   return (
     <StudioShell
-      active="assets"
+      active="scripts"
       title="查看和修改脚本"
       subtitle="这里先只保留生成视频前最需要看的内容。版本、审计和更多后台信息先收起来，避免打断修改。"
       action={<Link href="/" {...newWindowLinkProps} style={linkButtonStyle('secondary')}>回到开始制作</Link>}
@@ -41,7 +39,7 @@ export default async function ScriptDetailPage({ params }: { params: { id: strin
         <MetricTile label="来源文档" value={tutorial ? '已关联' : '未知'} note={tutorial?.title || '未找到来源'} />
         <MetricTile label="内容要点" value={topic ? '已生成' : '未知'} note={topic?.title || '未找到要点'} tone="#38bdf8" />
         <MetricTile label="脚本版本" value={`v${script.version || 1}`} note={script.sourceScriptId ? '复制版本' : '原始版本'} tone="#a78bfa" />
-        <MetricTile label="镜头拆解" value={`${shotBreakdown.length}`} note={`预计 ${formatDuration(totalDurationSec)}`} tone="#fbbf24" />
+        <MetricTile label="正文长度" value={`${scriptCharCount}`} note="按 Hook / 正文 / 结尾统计字符数" tone="#fbbf24" />
       </section>
 
       <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 330px', gap: 16, alignItems: 'start' }}>
@@ -58,24 +56,15 @@ export default async function ScriptDetailPage({ params }: { params: { id: strin
           </div>
 
           <section style={{ display: 'grid', gap: 12 }}>
-            <SectionTitle title="镜头拆解" note="生成视频前先确认这一版镜头。每个镜头都有旁白、字幕、画面方向和预计时长。" />
-            <div style={{ display: 'grid', gap: 10 }}>
-              {shotBreakdown.map((shot) => (
-                <article key={shot.order} style={{ ...subtlePanelStyle, borderRadius: 20, padding: 14, display: 'grid', gridTemplateColumns: '42px minmax(0, 1fr) 112px', gap: 14, alignItems: 'start' }}>
-                  <div style={{ width: 34, height: 34, borderRadius: 12, display: 'grid', placeItems: 'center', background: '#082f49', color: '#7dd3fc', fontWeight: 900 }}>{shot.order}</div>
-                  <div style={{ display: 'grid', gap: 8, minWidth: 0 }}>
-                    <strong style={{ color: '#e5ecf7', lineHeight: 1.45 }}>{shot.title}</strong>
-                    <div style={{ color: '#cbd5e1', lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>旁白：{shot.voiceover}</div>
-                    <div style={{ color: '#94a3b8', lineHeight: 1.65 }}>字幕：{shot.subtitle}</div>
-                    <div style={{ color: '#7dd3fc', lineHeight: 1.65 }}>画面：{shot.visualPrompt}</div>
-                  </div>
-                  <div style={{ display: 'grid', gap: 8, justifyItems: 'end' }}>
-                    <StatusBadge text={formatShotType(shot.shotType)} tone={shot.shotType === 'cta' ? 'warning' : shot.shotType === 'title' ? 'info' : 'neutral'} />
-                    <span style={{ color: '#cbd5e1', fontWeight: 800 }}>{shot.durationSec}s</span>
-                    <span style={{ color: '#94a3b8', fontSize: 12 }}>{formatVisualType(shot.visualType)}</span>
-                  </div>
-                </article>
-              ))}
+            <SectionTitle title="生成说明" note="当前页只确认脚本文案，不再展示本地自动拆镜草稿。" />
+            <div style={{ ...subtlePanelStyle, borderRadius: 20, padding: 14, display: 'grid', gap: 8 }}>
+              <strong style={{ color: '#e5ecf7' }}>真实分镜会在创建视频项目后生成</strong>
+              <div style={{ color: '#cbd5e1', lineHeight: 1.75 }}>
+                点击下方“用当前脚本生成视频”后，系统会直接进入视频项目创建，并由 OpenAI 整片规划 storyboard 与模板预览。
+              </div>
+              <div style={{ color: '#7dd3fc', lineHeight: 1.7 }}>
+                这里不再使用本地一句一镜的 shot breakdown，避免它干扰你对最终视频质量的判断。
+              </div>
             </div>
           </section>
 
@@ -149,32 +138,4 @@ function formatProjectStatus(status: string) {
     failed: '需要处理'
   };
   return labels[status] || status;
-}
-
-function formatDuration(seconds: number) {
-  if (seconds < 60) return `${seconds} 秒`;
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return rest ? `${minutes} 分 ${rest} 秒` : `${minutes} 分钟`;
-}
-
-function formatShotType(value: string) {
-  const labels: Record<string, string> = {
-    title: '开场',
-    pain: '问题',
-    step: '镜头',
-    result: '结果',
-    cta: '结尾'
-  };
-  return labels[value] || value;
-}
-
-function formatVisualType(value: string) {
-  const labels: Record<string, string> = {
-    slide: '标题页',
-    screen: '操作画面',
-    image: '视觉图',
-    caption: '字幕卡'
-  };
-  return labels[value] || value;
 }

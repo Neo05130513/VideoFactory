@@ -52,19 +52,21 @@ interface MiniMaxTextOptions {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  stream?: boolean;
   timeoutMs?: number;
   maxRetries?: number;
   retryDelayMs?: number;
   signal?: AbortSignal;
   settings?: VoiceSettings;
   onStatus?: (status: {
-    phase: 'attempting' | 'waiting' | 'retrying' | 'responded' | 'completed';
+    phase: 'attempting' | 'waiting' | 'retrying' | 'responded' | 'streaming' | 'completed';
     attempt: number;
     maxAttempts: number;
     timeoutMs: number;
     elapsedMs: number;
     detail: string;
     previewText?: string;
+    streamText?: string;
   }) => void | Promise<void>;
 }
 
@@ -265,6 +267,59 @@ function extractTextResponse(payload: any): string | null {
     || null;
 }
 
+function flattenStreamText(value: unknown): string[] {
+  if (typeof value === 'string') return [value];
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => flattenStreamText(item));
+  }
+  if (value && typeof value === 'object') {
+    const record = value as Record<string, unknown>;
+    if (typeof record.text === 'string') return [record.text];
+    if (typeof record.content === 'string') return [record.content];
+    if (typeof record.reasoning_content === 'string') return [record.reasoning_content];
+  }
+  return [];
+}
+
+function extractStreamChunkText(payload: any): string {
+  const choice = payload?.choices?.[0];
+  const parts = [
+    ...flattenStreamText(choice?.delta?.content),
+    ...flattenStreamText(choice?.delta?.reasoning_content),
+    ...flattenStreamText(choice?.message?.content),
+    ...flattenStreamText(choice?.message?.reasoning_content),
+    ...flattenStreamText(choice?.text),
+    ...flattenStreamText(payload?.data?.text)
+  ];
+  return parts.join('');
+}
+
+function mergeStreamText(current: string, incoming: string) {
+  if (!incoming) return current;
+  if (!current) return incoming;
+  if (incoming === current) return current;
+  if (incoming.startsWith(current)) return incoming;
+  if (current.endsWith(incoming)) return current;
+
+  const maxOverlap = Math.min(current.length, incoming.length);
+  for (let overlap = maxOverlap; overlap > 0; overlap -= 1) {
+    if (current.endsWith(incoming.slice(0, overlap))) {
+      return current + incoming.slice(overlap);
+    }
+  }
+
+  return current + incoming;
+}
+
+function pullNextSseEvent(buffer: string) {
+  const match = buffer.match(/\r?\n\r?\n/);
+  if (!match || typeof match.index !== 'number') return null;
+  return {
+    event: buffer.slice(0, match.index),
+    rest: buffer.slice(match.index + match[0].length)
+  };
+}
+
 export async function generateTextWithMiniMax(options: MiniMaxTextOptions) {
   const settings = options.settings || await getVoiceSettings().catch(() => undefined);
   const apiKey = settings?.minimaxApiKey || MINIMAX_API_KEY;
@@ -289,7 +344,8 @@ export async function generateTextWithMiniMax(options: MiniMaxTextOptions) {
       }
     ],
     temperature: options.temperature ?? 0.35,
-    max_tokens: options.maxTokens || 4096
+    max_tokens: options.maxTokens || 4096,
+    stream: options.stream ?? false
   };
   const timeoutMs = options.timeoutMs ?? Number(process.env.MINIMAX_TEXT_TIMEOUT_MS || 1_800_000);
   const maxRetries = Math.max(0, options.maxRetries ?? Number(process.env.MINIMAX_TEXT_MAX_RETRIES || 2));
@@ -307,7 +363,8 @@ export async function generateTextWithMiniMax(options: MiniMaxTextOptions) {
         maxAttempts,
         timeoutMs,
         elapsedMs: 0,
-        detail: `正在请求 MiniMax，第 ${attemptNumber}/${maxAttempts} 次尝试。`
+        detail: `正在请求 MiniMax，第 ${attemptNumber}/${maxAttempts} 次尝试。`,
+        streamText: ''
       });
 
       const startedAt = Date.now();
@@ -337,6 +394,140 @@ export async function generateTextWithMiniMax(options: MiniMaxTextOptions) {
       );
       if (heartbeat) clearInterval(heartbeat);
       heartbeat = null;
+      if (!response.ok) {
+        const rawText = await response.text();
+        const error = new Error(`MiniMax text generation failed at ${endpoint}: ${response.status} ${rawText}`);
+        if (attempt < maxRetries && isRetriableMiniMaxStatus(response.status)) {
+          lastError = error;
+          await options.onStatus?.({
+            phase: 'retrying',
+            attempt: attemptNumber,
+            maxAttempts,
+            timeoutMs,
+            elapsedMs: Date.now() - startedAt,
+            detail: `MiniMax 返回 ${response.status}，${retryDelayMs * (attempt + 1) / 1000} 秒后重试。`,
+            streamText: ''
+          });
+          await sleep(retryDelayMs * (attempt + 1));
+          continue;
+        }
+        throw error;
+      }
+
+      if (requestBody.stream && response.body) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let lastPayload: any = null;
+        let accumulatedText = '';
+        let lastEmittedText = '';
+        let lastStreamEmitAt = 0;
+        let emittedResponse = false;
+
+        const emitStreamUpdate = async (force = false) => {
+          if (!options.onStatus || !accumulatedText || accumulatedText === lastEmittedText) return;
+          const now = Date.now();
+          if (!force && now - lastStreamEmitAt < 200 && accumulatedText.length - lastEmittedText.length < 48) return;
+          lastEmittedText = accumulatedText;
+          lastStreamEmitAt = now;
+          await options.onStatus({
+            phase: 'streaming',
+            attempt: attemptNumber,
+            maxAttempts,
+            timeoutMs,
+            elapsedMs: now - startedAt,
+            detail: 'MiniMax 正在流式返回文本...',
+            previewText: accumulatedText.slice(-240),
+            streamText: accumulatedText
+          });
+        };
+
+        while (true) {
+          const { done, value } = await reader.read();
+          buffer += decoder.decode(value || new Uint8Array(), { stream: !done });
+
+          while (true) {
+            const nextEvent = pullNextSseEvent(buffer);
+            if (!nextEvent) break;
+            buffer = nextEvent.rest;
+            const data = nextEvent.event
+              .split(/\r?\n/)
+              .filter((line) => line.startsWith('data:'))
+              .map((line) => line.slice(5).trimStart())
+              .join('\n')
+              .trim();
+
+            if (!data || data === '[DONE]') continue;
+
+            let payload: any;
+            try {
+              payload = JSON.parse(data);
+            } catch {
+              continue;
+            }
+
+            lastPayload = payload;
+            const nextText = extractStreamChunkText(payload);
+            if (!nextText) continue;
+            accumulatedText = mergeStreamText(accumulatedText, nextText);
+
+            if (!emittedResponse) {
+              emittedResponse = true;
+              await options.onStatus?.({
+                phase: 'responded',
+                attempt: attemptNumber,
+                maxAttempts,
+                timeoutMs,
+                elapsedMs: Date.now() - startedAt,
+                detail: 'MiniMax 已开始返回流式文本。',
+                previewText: accumulatedText.slice(0, 160),
+                streamText: accumulatedText
+              });
+            }
+
+            await emitStreamUpdate();
+          }
+
+          if (done) break;
+        }
+
+        if (!lastPayload && buffer.trim()) {
+          try {
+            lastPayload = JSON.parse(buffer.trim());
+          } catch {
+            lastPayload = null;
+          }
+        }
+
+        if (lastPayload) {
+          ensureMiniMaxBaseResp(lastPayload, endpoint);
+        }
+
+        if (!accumulatedText && lastPayload) {
+          accumulatedText = extractTextResponse(lastPayload) || '';
+        }
+        if (!accumulatedText) {
+          throw new Error(`MiniMax text stream did not contain content at ${endpoint}`);
+        }
+
+        await emitStreamUpdate(true);
+        await options.onStatus?.({
+          phase: 'completed',
+          attempt: attemptNumber,
+          maxAttempts,
+          timeoutMs,
+          elapsedMs: Date.now() - startedAt,
+          detail: 'MiniMax 文本已生成完成，正在进入结构校验。',
+          previewText: accumulatedText.slice(0, 160),
+          streamText: accumulatedText
+        });
+
+        return {
+          text: accumulatedText,
+          endpoint,
+          model: requestBody.model
+        };
+      }
 
       const rawText = await response.text();
       await options.onStatus?.({
@@ -348,23 +539,6 @@ export async function generateTextWithMiniMax(options: MiniMaxTextOptions) {
         detail: 'MiniMax 已返回响应，正在解析结果。',
         previewText: rawText.slice(0, 160)
       });
-      if (!response.ok) {
-        const error = new Error(`MiniMax text generation failed at ${endpoint}: ${response.status} ${rawText}`);
-        if (attempt < maxRetries && isRetriableMiniMaxStatus(response.status)) {
-          lastError = error;
-          await options.onStatus?.({
-            phase: 'retrying',
-            attempt: attemptNumber,
-            maxAttempts,
-            timeoutMs,
-            elapsedMs: Date.now() - startedAt,
-            detail: `MiniMax 返回 ${response.status}，${retryDelayMs * (attempt + 1) / 1000} 秒后重试。`
-          });
-          await sleep(retryDelayMs * (attempt + 1));
-          continue;
-        }
-        throw error;
-      }
 
       const payload = ensureJsonPayload(rawText, endpoint);
       ensureMiniMaxBaseResp(payload, endpoint);
@@ -381,7 +555,8 @@ export async function generateTextWithMiniMax(options: MiniMaxTextOptions) {
         timeoutMs,
         elapsedMs: Date.now() - startedAt,
         detail: 'MiniMax 文本已生成完成，正在进入结构校验。',
-        previewText: text.slice(0, 160)
+        previewText: text.slice(0, 160),
+        streamText: text
       });
 
       return {
@@ -400,7 +575,8 @@ export async function generateTextWithMiniMax(options: MiniMaxTextOptions) {
           maxAttempts,
           timeoutMs,
           elapsedMs: 0,
-          detail: `MiniMax 请求异常：${wrapped.message}。${retryDelayMs * (attempt + 1) / 1000} 秒后重试。`
+          detail: `MiniMax 请求异常：${wrapped.message}。${retryDelayMs * (attempt + 1) / 1000} 秒后重试。`,
+          streamText: ''
         });
         await sleep(retryDelayMs * (attempt + 1));
         continue;

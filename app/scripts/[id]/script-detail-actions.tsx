@@ -6,10 +6,11 @@ import { navigatePendingWindow, openPendingWindow } from '../../_components/open
 import { linkButtonStyle, newWindowLinkProps, primaryButtonStyle, secondaryButtonStyle } from '../../_components/studio-ui';
 
 type AspectRatio = '9:16' | '16:9';
-type ProjectTemplate = 'ai-explainer-short-v1' | 'tech-explainer-v1' | 'tutorial-demo-v1';
+type ProjectTemplate = 'ai-explainer-short-v1' | 'hyperframes-explainer-v1' | 'tech-explainer-v1' | 'tutorial-demo-v1';
 
 const templateOptions: Array<{ value: ProjectTemplate; label: string; note: string }> = [
   { value: 'ai-explainer-short-v1', label: 'AI 科普短视频', note: '新版 Remotion 模板，适合讲解、方法论和产品介绍。' },
+  { value: 'hyperframes-explainer-v1', label: 'Hyperframes 视觉实验', note: 'HTML 卡片、浏览器框和动态图层，适合高质感短视频。' },
   { value: 'tech-explainer-v1', label: '技术解释器', note: '偏信息图和流程拆解，适合技术内容。' },
   { value: 'tutorial-demo-v1', label: '教程演示', note: '早期演示模板，适合简单教程验证。' }
 ];
@@ -23,7 +24,7 @@ export function ScriptDetailActions({ scriptId, projectIds }: { scriptId: string
   async function createProject() {
     const nextWindow = openPendingWindow();
     setBusy('create');
-    setMessage('已确认当前镜头拆解，正在创建视频...');
+    setMessage('已确认当前脚本，正在创建视频项目...');
     try {
       const response = await fetch('/api/videos/create', {
         method: 'POST',
@@ -102,7 +103,7 @@ export function ScriptDetailActions({ scriptId, projectIds }: { scriptId: string
         ))}
       </div>
       <button type="button" onClick={createProject} disabled={Boolean(busy)} style={primaryButtonStyle}>
-        {busy === 'create' ? '创建中...' : '确认镜头并生成视频'}
+        {busy === 'create' ? '创建中...' : '用当前脚本生成视频'}
       </button>
       <button type="button" onClick={duplicateScript} disabled={Boolean(busy)} style={secondaryButtonStyle}>
         {busy === 'duplicate' ? '复制中...' : '复制一份再修改'}

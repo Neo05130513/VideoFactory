@@ -19,14 +19,21 @@ export async function readJsonFile<T>(relativePath: string): Promise<T> {
   }
 }
 
+async function writeJsonMirror<T>(relativePath: string, data: T): Promise<void> {
+  const filePath = resolveRuntimePath(relativePath);
+  await ensureDirectory(path.dirname(filePath));
+  await writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+}
+
 export async function writeJsonFile<T>(relativePath: string, data: T): Promise<void> {
   try {
     await writeDbBackedJsonFile(relativePath, data);
+    if (isDataRelativePath(relativePath)) {
+      await writeJsonMirror(relativePath, data).catch(() => undefined);
+    }
     return;
   } catch {
-    const filePath = resolveRuntimePath(relativePath);
-    await ensureDirectory(path.dirname(filePath));
-    await writeFile(filePath, JSON.stringify(data, null, 2) + '\n', 'utf-8');
+    await writeJsonMirror(relativePath, data);
   }
 }
 

@@ -1,292 +1,145 @@
 [
   {
-    "id": "pipeline_job_1777037486741_4n722b",
-    "tutorialId": "tutorial_1776995559391_5gw8yb",
+    "id": "pipeline_job_1778288552783_qx8n8s",
+    "tutorialId": "tutorial_1778288552477_b0t1gm",
     "status": "completed",
     "stage": "completed",
     "progress": 100,
     "detail": "已完成，生成 1 条脚本。",
-    "createdAt": "2026-04-24T13:31:26.741Z",
-    "updatedAt": "2026-04-24T13:33:07.255Z",
-    "startedAt": "2026-04-24T13:31:26.744Z",
-    "previewText": "中小企业上AI第一步：找到那个每天都在…｜中小企业上AI，第一步真不是买系统。绝大多数人踩的坑，是还没搞清楚问题是什么，就先跑去选产品",
+    "createdAt": "2026-05-09T01:02:32.783Z",
+    "updatedAt": "2026-05-09T01:04:08.279Z",
+    "startedAt": "2026-05-09T01:02:32.786Z",
+    "previewText": "AI消息太多，销售团队该追哪一类｜一周里冒出的AI新消息再多，也不该全部追。对销售团队最有价值的判断只有一条：它能不能直接碰到你公司当前最费时间的客户动作",
     "totalTopics": 1,
     "result": {
-      "tutorialId": "tutorial_1776995559391_5gw8yb",
-      "tutorialTitle": "中小企业上AI，",
+      "tutorialId": "tutorial_1778288552477_b0t1gm",
+      "tutorialTitle": "一周AI消息很多。",
       "topicCount": 1,
       "scriptCount": 1,
       "scripts": [
         {
-          "id": "script_1777037587243_wy70xc",
-          "title": "中小企业上AI第一步：找到那个每天都在…",
-          "hook": "中小企业上AI，第一步真不是买系统。绝大多数人踩的坑，是还没搞清楚问题是什么，就先跑去选产品"
+          "id": "script_1778288648265_5zx0tj",
+          "title": "AI消息太多，销售团队该追哪一类",
+          "hook": "一周里冒出的AI新消息再多，也不该全部追。对销售团队最有价值的判断只有一条：它能不能直接碰到你公司当前最费时间的客户动作"
         }
       ],
-      "firstScriptId": "script_1777037587243_wy70xc",
-      "firstScriptTitle": "中小企业上AI第一步：找到那个每天都在…",
-      "firstScriptShots": [
-        {
-          "order": 1,
-          "title": "中小企业上AI第一步：找到那个每天都在…",
-          "voiceover": "中小企业上AI，第一步真不是买系统。绝大多数人踩的坑，是还没搞清楚问题是什么，就先跑去选产品",
-          "subtitle": "中小企业上AI，第一步真不是买系统。绝大多数人踩的坑，是还没搞清楚...",
-          "visualPrompt": "开场标题画面，突出主题：中小企业上AI第一步：找到那个每天都在…",
-          "durationSec": 8.5
-        },
-        {
-          "order": 2,
-          "title": "买系统救不了这个问题",
-          "voiceover": "很多老板一听到“AI能提效”",
-          "subtitle": "很多老板一听到“AI能提效”",
-          "visualPrompt": "讲解信息卡画面，围绕\"买系统救不了这个问题\"展示关键概念和辅助图形。",
-          "durationSec": 2.3
-        },
-        {
-          "order": 3,
-          "title": "买系统救不了这个问题",
-          "voiceover": "第一反应就是“买套系统”",
-          "subtitle": "第一反应就是“买套系统”",
-          "visualPrompt": "讲解信息卡画面，围绕\"买系统救不了这个问题\"展示关键概念和辅助图形。",
-          "durationSec": 2.3
-        },
-        {
-          "order": 4,
-          "title": "买系统救不了这个问题",
-          "voiceover": "结果系统买回来，发现问题没解决，还多了一堆新麻烦",
-          "subtitle": "结果系统买回来，发现问题没解决，还多了一堆新麻烦",
-          "visualPrompt": "问题拆解画面，用对比、警示标记和冲突结构呈现：结果系统买回来，发现问题没解决，还多了一堆新麻烦",
-          "durationSec": 5.5
-        },
-        {
-          "order": 5,
-          "title": "买系统救不了这个问题",
-          "voiceover": "因为根本没把问题本身看清楚，就急着找工具",
-          "subtitle": "因为根本没把问题本身看清楚，就急着找工具",
-          "visualPrompt": "问题拆解画面，用对比、警示标记和冲突结构呈现：因为根本没把问题本身看清楚，就急着找工具",
-          "durationSec": 4.9
-        },
-        {
-          "order": 6,
-          "title": "买系统救不了这个问题",
-          "voiceover": "就像家里乱，你不去整理",
-          "subtitle": "就像家里乱，你不去整理",
-          "visualPrompt": "讲解信息卡画面，围绕\"买系统救不了这个问题\"展示关键概念和辅助图形。",
-          "durationSec": 2.5
-        },
-        {
-          "order": 7,
-          "title": "买系统救不了这个问题",
-          "voiceover": "先去买了个新柜子",
-          "subtitle": "先去买了个新柜子",
-          "visualPrompt": "讲解信息卡画面，围绕\"买系统救不了这个问题\"展示关键概念和辅助图形。",
-          "durationSec": 2.3
-        },
-        {
-          "order": 8,
-          "title": "买系统救不了这个问题",
-          "voiceover": "中小企业上AI，最重要的第一步",
-          "subtitle": "中小企业上AI，最重要的第一步",
-          "visualPrompt": "讲解信息卡画面，围绕\"买系统救不了这个问题\"展示关键概念和辅助图形。",
-          "durationSec": 4.2
-        },
-        {
-          "order": 9,
-          "title": "每天都在重复的那个动作",
-          "voiceover": "什么才算真正值得AI介入的问题",
-          "subtitle": "什么才算真正值得AI介入的问题",
-          "visualPrompt": "问题拆解画面，用对比、警示标记和冲突结构呈现：什么才算真正值得AI介入的问题",
-          "durationSec": 4.2
-        },
-        {
-          "order": 10,
-          "title": "每天都在重复的那个动作",
-          "voiceover": "标准很简单：每天都在重复",
-          "subtitle": "标准很简单：每天都在重复",
-          "visualPrompt": "讲解信息卡画面，围绕\"每天都在重复的那个动作\"展示关键概念和辅助图形。",
-          "durationSec": 2.5
-        },
-        {
-          "order": 11,
-          "title": "每天都在重复的那个动作",
-          "voiceover": "而且最容易出错，三个条件同时满足，才是AI的菜",
-          "subtitle": "而且最容易出错，三个条件同时满足，才是AI的菜",
-          "visualPrompt": "问题拆解画面，用对比、警示标记和冲突结构呈现：而且最容易出错，三个条件同时满足，才是AI的菜",
-          "durationSec": 5.3
-        },
-        {
-          "order": 12,
-          "title": "每天都在重复的那个动作",
-          "voiceover": "只满足一个，效果都打折扣",
-          "subtitle": "只满足一个，效果都打折扣",
-          "visualPrompt": "讲解信息卡画面，围绕\"每天都在重复的那个动作\"展示关键概念和辅助图形。",
-          "durationSec": 2.5
-        },
-        {
-          "order": 13,
-          "title": "三种最常见的重复场景",
-          "voiceover": "来看几个真实的高频场景",
-          "subtitle": "来看几个真实的高频场景",
-          "visualPrompt": "讲解信息卡画面，围绕\"三种最常见的重复场景\"展示关键概念和辅助图形。",
-          "durationSec": 2.3
-        },
-        {
-          "order": 14,
-          "title": "三种最常见的重复场景",
-          "voiceover": "场景一：客户反复问型号差异，销售每天要解释十几遍",
-          "subtitle": "场景一：客户反复问型号差异，销售每天要解释十几遍",
-          "visualPrompt": "讲解信息卡画面，围绕\"三种最常见的重复场景\"展示关键概念和辅助图形。",
-          "durationSec": 5.5
-        },
-        {
-          "order": 15,
-          "title": "三种最常见的重复场景",
-          "voiceover": "场景二：客户问售后怎么处理，同样的流程要重复说",
-          "subtitle": "场景二：客户问售后怎么处理，同样的流程要重复说",
-          "visualPrompt": "操作流程画面，分层展示：场景二：客户问售后怎么处理，同样的流程要重复说",
-          "durationSec": 5.3
-        },
-        {
-          "order": 16,
-          "title": "三种最常见的重复场景",
-          "voiceover": "场景三：产品介绍没有统一版本",
-          "subtitle": "场景三：产品介绍没有统一版本",
-          "visualPrompt": "讲解信息卡画面，围绕\"三种最常见的重复场景\"展示关键概念和辅助图形。",
-          "durationSec": 4.1
-        },
-        {
-          "order": 17,
-          "title": "三种最常见的重复场景",
-          "voiceover": "每个销售各说各的",
-          "subtitle": "每个销售各说各的",
-          "visualPrompt": "讲解信息卡画面，围绕\"三种最常见的重复场景\"展示关键概念和辅助图形。",
-          "durationSec": 2.3
-        },
-        {
-          "order": 18,
-          "title": "三种最常见的重复场景",
-          "voiceover": "答错了客户还投诉",
-          "subtitle": "答错了客户还投诉",
-          "visualPrompt": "讲解信息卡画面，围绕\"三种最常见的重复场景\"展示关键概念和辅助图形。",
-          "durationSec": 2.3
-        },
-        {
-          "order": 19,
-          "title": "三种最常见的重复场景",
-          "voiceover": "这三个场景有一个共同点：人做了大量低价值的重复劳动",
-          "subtitle": "这三个场景有一个共同点：人做了大量低价值的重复劳动",
-          "visualPrompt": "讲解信息卡画面，围绕\"三种最常见的重复场景\"展示关键概念和辅助图形。",
-          "durationSec": 5.6
-        },
-        {
-          "order": 20,
-          "title": "三种最常见的重复场景",
-          "voiceover": "而且出错率随疲劳程度直线上升",
-          "subtitle": "而且出错率随疲劳程度直线上升",
-          "visualPrompt": "问题拆解画面，用对比、警示标记和冲突结构呈现：而且出错率随疲劳程度直线上升",
-          "durationSec": 4.1
-        },
-        {
-          "order": 21,
-          "title": "失败案例",
-          "voiceover": "没梳理就上系统：有一种典型的失败路径：公司想做“销售辅助AI”",
-          "subtitle": "没梳理就上系统：有一种典型的失败路径：公司想做“销售辅助AI”",
-          "visualPrompt": "问题拆解画面，用对比、警示标记和冲突结构呈现：没梳理就上系统：有一种典型的失败路径：公司想做“销售辅助AI”",
-          "durationSec": 6.1
-        },
-        {
-          "order": 22,
-          "title": "失败案例",
-          "voiceover": "买了一套系统回来",
-          "subtitle": "买了一套系统回来",
-          "visualPrompt": "讲解信息卡画面，围绕\"失败案例\"展示关键概念和辅助图形。",
-          "durationSec": 2.3
-        },
-        {
-          "order": 23,
-          "title": "失败案例",
-          "voiceover": "结果推不动，因为销售话术本来就没有统一版本",
-          "subtitle": "结果推不动，因为销售话术本来就没有统一版本",
-          "visualPrompt": "讲解信息卡画面，围绕\"失败案例\"展示关键概念和辅助图形。",
-          "durationSec": 5
-        },
-        {
-          "order": 24,
-          "title": "失败案例",
-          "voiceover": "AI不知道该学谁的",
-          "subtitle": "AI不知道该学谁的",
-          "visualPrompt": "讲解信息卡画面，围绕\"失败案例\"展示关键概念和辅助图形。",
-          "durationSec": 2.3
-        },
-        {
-          "order": 25,
-          "title": "失败案例",
-          "voiceover": "系统给出来的回答",
-          "subtitle": "系统给出来的回答",
-          "visualPrompt": "讲解信息卡画面，围绕\"失败案例\"展示关键概念和辅助图形。",
-          "durationSec": 2.3
-        },
-        {
-          "order": 26,
-          "title": "失败案例",
-          "voiceover": "客户听了觉得不专业",
-          "subtitle": "客户听了觉得不专业",
-          "visualPrompt": "讲解信息卡画面，围绕\"失败案例\"展示关键概念和辅助图形。",
-          "durationSec": 2.3
-        },
-        {
-          "order": 27,
-          "title": "失败案例",
-          "voiceover": "反而更不信任，这不是AI的问题",
-          "subtitle": "反而更不信任，这不是AI的问题",
-          "visualPrompt": "问题拆解画面，用对比、警示标记和冲突结构呈现：反而更不信任，这不是AI的问题",
-          "durationSec": 4.2
-        },
-        {
-          "order": 28,
-          "title": "失败案例",
-          "voiceover": "是问题本身没有被梳理清楚",
-          "subtitle": "是问题本身没有被梳理清楚",
-          "visualPrompt": "问题拆解画面，用对比、警示标记和冲突结构呈现：是问题本身没有被梳理清楚",
-          "durationSec": 2.3
-        },
-        {
-          "order": 29,
-          "title": "失败案例",
-          "voiceover": "AI不知道该解决什么",
-          "subtitle": "AI不知道该解决什么",
-          "visualPrompt": "讲解信息卡画面，围绕\"失败案例\"展示关键概念和辅助图形。",
-          "durationSec": 2.3
-        },
-        {
-          "order": 30,
-          "title": "总结与下一步",
-          "voiceover": "今天回去就做一件事：找你们团队要一份最近一个月被问过最多的问题清单，那三个出现频率最高的，就是AI落地的第一批候选",
-          "subtitle": "今天回去就做一件事：找你们团队要一份最近一个月被问过最多的问题清单...",
-          "visualPrompt": "结尾总结画面，突出下一步行动：总结与下一步",
-          "durationSec": 8.5
-        }
-      ]
+      "firstScriptId": "script_1778288648265_5zx0tj",
+      "firstScriptTitle": "AI消息太多，销售团队该追哪一类"
     },
-    "completedAt": "2026-04-24T13:33:07.255Z"
+    "completedAt": "2026-05-09T01:04:08.279Z"
   },
   {
-    "id": "pipeline_job_1777037047089_chto5i",
-    "tutorialId": "tutorial_1776995559391_5gw8yb",
-    "status": "cancelled",
-    "stage": "cancelled",
+    "id": "pipeline_job_1778258242809_1arg2t",
+    "tutorialId": "tutorial_1778245688142_n940oz",
+    "status": "completed",
+    "stage": "completed",
     "progress": 100,
-    "detail": "已清理旧的多选题脚本任务，请重新开始生成。",
-    "createdAt": "2026-04-24T13:24:07.089Z",
-    "updatedAt": "2026-04-24T13:38:30.000Z",
-    "startedAt": "2026-04-24T13:24:07.093Z",
-    "totalTopics": 5,
-    "currentTopicTitle": "中小企业上AI，的核心方法到底是什么",
-    "currentTopicIndex": 2,
-    "attempt": 1,
-    "maxAttempts": 3,
-    "elapsedMs": 20019,
-    "error": "已清理旧的多选题脚本任务",
-    "completedAt": "2026-04-24T13:38:30.000Z"
+    "detail": "已完成，生成 1 条脚本。",
+    "createdAt": "2026-05-08T16:37:22.809Z",
+    "updatedAt": "2026-05-08T16:39:07.552Z",
+    "startedAt": "2026-05-08T16:37:22.811Z",
+    "previewText": "实体企业先用AI提效的客户管理流程｜实体企业上AI，最容易走偏的一步是先做宣传内容。真正该先做的，是把客户管理里最耗人、最重复、最能快速见效的三段流程先跑顺",
+    "totalTopics": 1,
+    "result": {
+      "tutorialId": "tutorial_1778245688142_n940oz",
+      "tutorialTitle": "实体企业最先适合用AI提效的，",
+      "topicCount": 1,
+      "scriptCount": 1,
+      "scripts": [
+        {
+          "id": "script_1778258347538_ms17kl",
+          "title": "实体企业先用AI提效的客户管理流程",
+          "hook": "实体企业上AI，最容易走偏的一步是先做宣传内容。真正该先做的，是把客户管理里最耗人、最重复、最能快速见效的三段流程先跑顺"
+        }
+      ],
+      "firstScriptId": "script_1778258347538_ms17kl",
+      "firstScriptTitle": "实体企业先用AI提效的客户管理流程"
+    },
+    "completedAt": "2026-05-08T16:39:07.552Z"
+  },
+  {
+    "id": "pipeline_job_1778254137212_smnz1q",
+    "tutorialId": "tutorial_1778245688142_n940oz",
+    "status": "completed",
+    "stage": "completed",
+    "progress": 100,
+    "detail": "已完成，生成 1 条脚本。",
+    "createdAt": "2026-05-08T15:28:57.212Z",
+    "updatedAt": "2026-05-08T15:30:06.098Z",
+    "startedAt": "2026-05-08T15:28:57.213Z",
+    "previewText": "实体企业AI提效先攻三处｜很多团队一上来就问AI能不能做宣传内容，但实体企业最先见效的，往是客服咨询、文档表格、销售跟进这三段高重复流程",
+    "totalTopics": 1,
+    "result": {
+      "tutorialId": "tutorial_1778245688142_n940oz",
+      "tutorialTitle": "实体企业最先适合用AI提效的，",
+      "topicCount": 1,
+      "scriptCount": 1,
+      "scripts": [
+        {
+          "id": "script_1778254206086_lntk3p",
+          "title": "实体企业AI提效先攻三处",
+          "hook": "很多团队一上来就问AI能不能做宣传内容，但实体企业最先见效的，往是客服咨询、文档表格、销售跟进这三段高重复流程"
+        }
+      ],
+      "firstScriptId": "script_1778254206086_lntk3p",
+      "firstScriptTitle": "实体企业AI提效先攻三处"
+    },
+    "completedAt": "2026-05-08T15:30:06.098Z"
+  },
+  {
+    "id": "pipeline_job_1778253965099_0e0yp9",
+    "tutorialId": "tutorial_1778245688142_n940oz",
+    "status": "failed",
+    "stage": "failed",
+    "progress": 100,
+    "detail": "AI 脚本生成失败：Unexpected non-whitespace character after JSON at position 3770 (line 1 column 3771)",
+    "createdAt": "2026-05-08T15:26:05.099Z",
+    "updatedAt": "2026-05-08T15:27:19.309Z",
+    "startedAt": "2026-05-08T15:26:05.101Z",
+    "totalTopics": 1,
+    "currentTopicTitle": "实体企业上AI最容易踩的坑：一上来做宣传，结果效率没提升",
+    "currentTopicIndex": 1,
+    "previewText": "{\"title\":\"实体企业先用AI提效的三条主线\",\"hook\":\"别先问AI能不能做爆款内容。对实体企业销售来说，更快见效的往是三件最耗人、最重复、最容易出错的日常工作。\",\"shots\":[{\"title\":\"先纠正AI投入顺序\",\"voiceover\":\"很多团队一谈AI，第一反应就是写文案、做视频、发内容。但",
+    "error": "AI 脚本生成失败：Unexpected non-whitespace character after JSON at position 3770 (line 1 column 3771)",
+    "completedAt": "2026-05-08T15:27:19.309Z"
+  },
+  {
+    "id": "pipeline_job_1778253275977_u6rx43",
+    "tutorialId": "tutorial_1778245688142_n940oz",
+    "status": "failed",
+    "stage": "failed",
+    "progress": 100,
+    "detail": "AI 选题生成失败：OpenAI network request failed during text generation request at /v1/responses: TypeError: fetch failed; cause: Connect Timeout Error (attempted addresses: 199.59.148.201:443, 2001::602c:891c:443, timeout: 10000ms); url=https://api.openai.com/v1/responses",
+    "createdAt": "2026-05-08T15:14:35.977Z",
+    "updatedAt": "2026-05-08T15:15:15.029Z",
+    "startedAt": "2026-05-08T15:14:35.979Z",
+    "error": "AI 选题生成失败：OpenAI network request failed during text generation request at /v1/responses: TypeError: fetch failed; cause: Connect Timeout Error (attempted addresses: 199.59.148.201:443, 2001::602c:891c:443, timeout: 10000ms); url=https://api.openai.com/v1/responses",
+    "completedAt": "2026-05-08T15:15:15.029Z"
+  },
+  {
+    "id": "pipeline_job_1778247305692_rjozs9",
+    "tutorialId": "tutorial_1778245688142_n940oz",
+    "status": "failed",
+    "stage": "failed",
+    "progress": 100,
+    "detail": "AI 选题生成失败：未配置 OPENAI_API_KEY，已停止选题生成。",
+    "createdAt": "2026-05-08T13:35:05.692Z",
+    "updatedAt": "2026-05-08T13:51:49.983Z",
+    "startedAt": "2026-05-08T13:51:49.972Z",
+    "error": "AI 选题生成失败：未配置 OPENAI_API_KEY，已停止选题生成。",
+    "completedAt": "2026-05-08T13:51:49.983Z"
+  },
+  {
+    "id": "pipeline_job_1778245688446_feaefe",
+    "tutorialId": "tutorial_1778245688142_n940oz",
+    "status": "failed",
+    "stage": "failed",
+    "progress": 100,
+    "detail": "MiniMax 选题生成失败：MiniMax request failed at /v1/text/chatcompletion_v2: 2061 your current token plan not support model, MiniMax-M2.7",
+    "createdAt": "2026-05-08T13:08:08.446Z",
+    "updatedAt": "2026-05-08T13:08:08.823Z",
+    "startedAt": "2026-05-08T13:08:08.448Z",
+    "error": "MiniMax 选题生成失败：MiniMax request failed at /v1/text/chatcompletion_v2: 2061 your current token plan not support model, MiniMax-M2.7",
+    "completedAt": "2026-05-08T13:08:08.823Z"
   }
 ]

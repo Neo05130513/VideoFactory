@@ -1,1 +1,30 @@
-[]
+[
+  {
+    "id": "topic_1778288567569_esay7j",
+    "tutorialId": "tutorial_1778288552477_b0t1gm",
+    "title": "老板别再追AI热搜：用3道筛子判断什么该看、什么该投",
+    "angle": "方法论型",
+    "hookType": "痛点开头",
+    "painPoint": "AI消息过载让老板和销售管理者陷入“什么都想追、最后什么都落不了地”，难以判断哪",
+    "audience": "中小企业老板、销售负责人、需要做AI落地",
+    "platformFit": [
+      "document"
+    ],
+    "viralScore": 70,
+    "createdAt": "2026-05-09T01:02:47.569Z"
+  },
+  {
+    "id": "topic_1778258257237_hc0763",
+    "tutorialId": "tutorial_1778245688142_n940oz",
+    "title": "实体企业做AI最容易踩的坑：一上来先做宣传，结果效率没起来",
+    "angle": "避坑型",
+    "hookType": "警告开头",
+    "painPoint": "很多实体企业把AI优先用在写文案做宣传，短期看热闹但内部依旧被重复咨询、文档表格",
+    "audience": "想推进AI落地的实体企业老板、销售负责人",
+    "platformFit": [
+      "document"
+    ],
+    "viralScore": 70,
+    "createdAt": "2026-05-08T16:37:37.237Z"
+  }
+]

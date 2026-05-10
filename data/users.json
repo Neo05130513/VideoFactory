@@ -5,7 +5,10 @@
     "email": "admin@videofactory.local",
     "passwordHash": "scrypt:ae84d6b63eb95002b3d2e56b701a3e8a:c9ffc7ad544108bf4bcc19c88cf8915b0d3ef86b9bfe5cefab4f4c7347e158ae591395bd24e272748d80204f7da9ffe82ba1a863cd84e0f0fbc32d784c6c6b0c",
     "role": "admin",
-    "createdAt": "2026-04-10T00:00:00.000Z"
+    "createdAt": "2026-04-10T00:00:00.000Z",
+    "lastLoginAt": "2026-05-08T12:40:06.243Z",
+    "failedLoginAttempts": 0,
+    "mustChangePassword": false
   },
   {
     "id": "user_content_demo",
@@ -13,7 +16,8 @@
     "email": "content@videofactory.local",
     "passwordHash": "scrypt:d22a557223206f4105536f88b0757986:73767fb057011b6887ae22f919bf2f8aca61b7f02b1cc68c35f41f5081c825822d204fe743fd1b22a6bbeb9b371ec7296608f2c8736a7cfa307514dde26fadc6",
     "role": "content",
-    "createdAt": "2026-04-10T00:00:00.000Z"
+    "createdAt": "2026-04-10T00:00:00.000Z",
+    "mustChangePassword": false
   },
   {
     "id": "user_video_demo",
@@ -21,7 +25,8 @@
     "email": "video@videofactory.local",
     "passwordHash": "scrypt:ab8367028b906b82ee5f1c1e4064855a:e50a8e4b4aa1c986c326ae735dfabb83d238987a1bcf0cc0acdbf21fcc377d0aec434f1e4e8bb33c450346e9717f059d2d3745814bb9854e7610ec054e39e1d6",
     "role": "video",
-    "createdAt": "2026-04-10T00:00:00.000Z"
+    "createdAt": "2026-04-10T00:00:00.000Z",
+    "mustChangePassword": false
   },
   {
     "id": "user_ops_demo",
@@ -29,6 +34,7 @@
     "email": "ops@videofactory.local",
     "passwordHash": "scrypt:24ffe2877415fb5cdba72dff5dda2aed:3507adc41346ac9b7af397b0e3738cb97316f1c4ef354f5f907aedf19ae844b4fe8049fbec7f0d252f12bf5d02535a1b1604097386e05325f3445f3c87c6eeca",
     "role": "ops",
-    "createdAt": "2026-04-10T00:00:00.000Z"
+    "createdAt": "2026-04-10T00:00:00.000Z",
+    "mustChangePassword": false
   }
 ]

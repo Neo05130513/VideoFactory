@@ -18,7 +18,7 @@ export default async function ScriptsPage() {
 
   return (
     <StudioShell
-      active="assets"
+      active="scripts"
       title="脚本"
       subtitle="这里保持简单：看脚本、改脚本、把脚本继续生成视频。复杂的版本对比和后台信息先不展示。"
       action={<Link href="/" {...newWindowLinkProps} style={linkButtonStyle('primary')}>回到开始制作</Link>}

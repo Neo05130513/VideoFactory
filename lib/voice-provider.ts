@@ -16,8 +16,9 @@ function requireEnv(name: string) {
   return value;
 }
 
-function audioHash(text: string, profileId: string) {
-  return createHash('sha1').update(`${profileId}:${text}`).digest('hex').slice(0, 12);
+function audioHash(text: string, profile: VoiceProfile) {
+  const voiceVersion = profile.providerVoiceId || profile.updatedAt || profile.id;
+  return createHash('sha1').update(`${profile.id}:${voiceVersion}:${text}`).digest('hex').slice(0, 12);
 }
 
 function arrayBufferToBuffer(value: ArrayBuffer) {
@@ -236,7 +237,7 @@ export async function generateSceneVoiceAudio(params: {
   order: number;
   text: string;
 }) {
-  const hash = audioHash(params.text, params.profile.id);
+  const hash = audioHash(params.text, params.profile);
   const extension = params.profile.provider === 'aliyun-cosyvoice' ? 'wav' : 'mp3';
   const relativePath = generatedRelativePath('remotion', params.projectId, 'audio', `${String(params.order).padStart(2, '0')}-${params.sceneId}-${hash}.${extension}`);
   const absolutePath = resolveAppPath(relativePath);

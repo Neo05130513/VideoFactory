@@ -11,6 +11,7 @@ import {
   useVideoConfig
 } from 'remotion';
 import type { RemotionSceneInput, RemotionVideoInput } from './types';
+import { voiceoverVolume } from './audio';
 
 const FPS = 30;
 
@@ -65,7 +66,7 @@ function splitText(text: string, maxChars: number, maxLines: number) {
 }
 
 function sceneFrames(scene: RemotionSceneInput) {
-  return Math.max(1, Math.round(scene.durationSec * FPS));
+  return Math.max(1, Math.ceil(scene.durationSec * FPS));
 }
 
 function getSceneStart(scenes: RemotionSceneInput[], index: number) {
@@ -482,7 +483,7 @@ function SceneCard({
         overflow: 'hidden'
       }}
     >
-      {scene.audioPath ? <Audio src={staticFile(scene.audioPath.replace(/^\/+/, ''))} /> : null}
+      {scene.audioPath ? <Audio src={staticFile(scene.audioPath.replace(/^\/+/, ''))} volume={(audioFrame) => voiceoverVolume(audioFrame, duration)} /> : null}
       <Background palette={palette} scene={scene} progress={progress} />
       <HeaderBand scene={scene} sceneIndex={sceneIndex} sceneCount={scenes.length} palette={palette} enter={enter} />
       <TitleBlock lines={titleLines} scene={scene} enter={enter} palette={palette} />
@@ -504,6 +505,7 @@ export function TutorialDemo(input: RemotionVideoInput) {
 
   return (
     <AbsoluteFill style={{ background: '#020617' }}>
+      {input.project.audioPath ? <Audio src={staticFile(input.project.audioPath.replace(/^\//, ''))} /> : null}
       {scenes.map((scene, index) => (
         <Sequence key={scene.id} from={getSceneStart(scenes, index)} durationInFrames={sceneFrames(scene)}>
           <SceneCard scene={scene} projectTitle={input.project.title} preset={preset} sceneIndex={index} scenes={scenes} />

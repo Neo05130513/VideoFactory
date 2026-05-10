@@ -7,9 +7,11 @@ import { EmptyGuide, linkButtonStyle, MetricTile, newWindowLinkProps, Panel, Sec
 import { getRenderJobs, getScripts, getTutorials, getVideoAssets, getVideoProjects, getVideoScenes } from '@/lib/queries';
 import { sanitizeSceneText } from '@/lib/narration';
 import { buildSubtitleCues } from '@/lib/subtitles';
+import { getVideoProgressSnapshot } from '@/lib/video-progress';
 import type { RemotionVideoInput } from '@/remotion/types';
 import { VideoProjectActions } from './project-actions';
 import { RemotionProjectPreview } from '../_components/remotion-project-preview';
+import { VideoProgressPanel } from '../video-progress-panel';
 
 export default async function VideoProjectDetailPage({ params }: { params: { id: string } }) {
   const [projects, scenes, assets, scripts, tutorials, jobs] = await Promise.all([
@@ -64,8 +66,16 @@ export default async function VideoProjectDetailPage({ params }: { params: { id:
   const audioCount = projectAssets.filter((asset) => asset.assetType === 'audio').length;
   const imageCount = projectAssets.filter((asset) => asset.assetType === 'image').length;
   const subtitleCount = projectAssets.filter((asset) => asset.assetType === 'subtitle').length;
-  const latestJob = [...jobs].reverse().find((job) => job.projectId === project.id);
+  const latestJob = [...jobs]
+    .filter((job) => job.projectId === project.id)
+    .sort((a, b) => Number(new Date(b.updatedAt)) - Number(new Date(a.updatedAt)))[0] || null;
   const status = formatStatus(project.status, latestJob?.status);
+  const progressSnapshot = getVideoProgressSnapshot({
+    project,
+    job: latestJob,
+    scenes: projectScenes,
+    assets: projectAssets
+  });
 
   return (
     <StudioShell
@@ -94,7 +104,18 @@ export default async function VideoProjectDetailPage({ params }: { params: { id:
             </div>
           ) : null}
 
-          <VideoProjectActions projectId={project.id} projectTitle={project.title} />
+          <section style={{ display: 'grid', gap: 12, borderRadius: 18, border: '1px solid rgba(56,189,248,0.22)', background: 'rgba(14, 165, 233, 0.07)', padding: 14 }}>
+            <SectionTitle title="生成状态" note={progressSnapshot.canStop ? '任务正在执行，可以停止或等待完成。' : progressSnapshot.progress >= 100 ? '当前项目已有最终成片。' : '分镜已生成后，需要点击按钮才会开始输出 MP4。'} />
+            <VideoProgressPanel projectId={project.id} initial={progressSnapshot} />
+          </section>
+
+          <VideoProjectActions
+            projectId={project.id}
+            projectTitle={project.title}
+            projectStatus={project.status}
+            hasOutput={Boolean(videoAsset)}
+            initialJobStatus={latestJob?.status || ''}
+          />
 
           <section style={{ display: 'grid', gap: 12 }}>
             <SectionTitle title="模板预览" note="不用等待最终 MP4，也可以先检查画面节奏、字幕和模板风格。" />
@@ -116,7 +137,7 @@ export default async function VideoProjectDetailPage({ params }: { params: { id:
             {videoAsset ? (
               <a href={videoAsset.path} target="_blank" rel="noreferrer" style={linkButtonStyle('primary')}>打开成片</a>
             ) : (
-              <EmptyGuide title="还没有成片" text="点击上方重新渲染项目，完成后会在新窗口打开最新视频详情。" />
+              <EmptyGuide title="还没有成片" text="点击上方“开始生成成片”，任务进入队列后这里会显示最新进度。" />
             )}
           </section>
 
@@ -212,6 +233,7 @@ function formatJobStatus(status: string) {
 function formatTemplate(template: string) {
   const labels: Record<string, string> = {
     'ai-explainer-short-v1': 'AI 科普短视频',
+    'hyperframes-explainer-v1': 'Hyperframes 视觉实验',
     'tech-explainer-v1': '技术解释器',
     'tutorial-demo-v1': '教程演示'
   };

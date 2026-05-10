@@ -11,6 +11,7 @@ import {
   useVideoConfig
 } from 'remotion';
 import type { RemotionSceneInput, RemotionVideoInput } from './types';
+import { voiceoverVolume } from './audio';
 
 const FPS = 30;
 
@@ -96,7 +97,7 @@ const modeLabels: Record<SceneMode, string> = {
 };
 
 function sceneFrames(scene: RemotionSceneInput) {
-  return Math.max(1, Math.round(scene.durationSec * FPS));
+  return Math.max(1, Math.ceil(scene.durationSec * FPS));
 }
 
 function getSceneStart(scenes: RemotionSceneInput[], index: number) {
@@ -295,7 +296,6 @@ function SceneChrome({
           }}
         />
       </div>
-      {scene.audioPath ? <Audio src={staticFile(scene.audioPath.replace(/^\/+/, ''))} /> : null}
     </>
   );
 }
@@ -1135,6 +1135,7 @@ function LandscapeTechScene({
 
   return (
     <AbsoluteFill style={{ fontFamily: '"Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif', overflow: 'hidden' }}>
+      {scene.audioPath ? <Audio src={staticFile(scene.audioPath.replace(/^\/+/, ''))} volume={(audioFrame) => voiceoverVolume(audioFrame, duration)} /> : null}
       <div style={{ position: 'absolute', inset: 0, ...transitionStyle(scene, frame) }}>
         <TechBackground palette={palette} mode={mode} localProgress={localProgress} />
         <div style={{ position: 'absolute', left: 82, top: 180, width: 760, color: palette.text, opacity: enter, transform: `translateY(${(1 - enter) * 42}px)` }}>
@@ -1145,8 +1146,7 @@ function LandscapeTechScene({
         <LandscapeVisual scene={scene} mode={mode} palette={palette} frame={frame} />
         <MainCaption scene={scene} palette={palette} frame={frame} />
         <LandscapeChrome sceneIndex={sceneIndex} sceneCount={sceneCount} mode={mode} palette={palette} enter={enter} />
-        {scene.audioPath ? <Audio src={staticFile(scene.audioPath.replace(/^\/+/, ''))} /> : null}
-      </div>
+        </div>
       <TransitionOverlay scene={scene} frame={frame} palette={palette} />
     </AbsoluteFill>
   );
@@ -1178,6 +1178,7 @@ function TechScene({
 
   return (
     <AbsoluteFill style={{ fontFamily: '"Avenir Next", "PingFang SC", "Hiragino Sans GB", sans-serif', overflow: 'hidden' }}>
+      {scene.audioPath ? <Audio src={staticFile(scene.audioPath.replace(/^\/+/, ''))} volume={(audioFrame) => voiceoverVolume(audioFrame, duration)} /> : null}
       <div style={{ position: 'absolute', inset: 0, ...transitionStyle(scene, frame) }}>
         <TechBackground palette={palette} mode={mode} localProgress={localProgress} />
         <SceneBody mode={mode} scene={scene} projectTitle={projectTitle} palette={palette} frame={frame} enter={enter} />
@@ -1194,6 +1195,7 @@ export function TechExplainer(input: RemotionVideoInput) {
   const scenes = [...input.scenes].sort((a, b) => a.order - b.order);
   return (
     <AbsoluteFill style={{ background: '#020617' }}>
+      {input.project.audioPath ? <Audio src={staticFile(input.project.audioPath.replace(/^\//, ''))} /> : null}
       {scenes.map((scene, index) => (
         <Sequence key={scene.id} from={getSceneStart(scenes, index)} durationInFrames={sceneFrames(scene)}>
           <TechScene scene={scene} projectTitle={input.project.title} preset={preset} sceneIndex={index} sceneCount={scenes.length} />

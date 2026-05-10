@@ -1,1 +1,16 @@
-[]
+[
+  {
+    "id": "render_job_1778259266361_e7jr3k",
+    "projectId": "video_project_1778258874134_s0pu4w",
+    "status": "completed",
+    "attempt": 1,
+    "maxAttempts": 2,
+    "createdAt": "2026-05-08T16:54:26.361Z",
+    "updatedAt": "2026-05-08T17:03:53.820Z",
+    "startedAt": "2026-05-08T16:54:27.110Z",
+    "completedAt": "2026-05-08T17:03:53.820Z",
+    "outputPath": "/generated/remotion/video_project_1778258874134_s0pu4w/output.mp4",
+    "stage": "completed",
+    "progress": 100
+  }
+]

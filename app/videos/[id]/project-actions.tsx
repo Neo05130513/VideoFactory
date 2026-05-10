@@ -3,10 +3,18 @@
 import { useEffect, useState } from 'react';
 import { navigatePendingWindow, openPendingWindow } from '../../_components/open-new-window';
 
-export function VideoProjectActions({ projectId, projectTitle }: { projectId: string; projectTitle: string }) {
+type VideoProjectActionsProps = {
+  projectId: string;
+  projectTitle: string;
+  projectStatus: string;
+  hasOutput: boolean;
+  initialJobStatus?: string;
+};
+
+export function VideoProjectActions({ projectId, projectTitle, projectStatus, hasOutput, initialJobStatus = '' }: VideoProjectActionsProps) {
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState('');
-  const [jobStatus, setJobStatus] = useState<string>('');
+  const [jobStatus, setJobStatus] = useState<string>(initialJobStatus);
   const [pendingRenderWindow, setPendingRenderWindow] = useState<Window | null>(null);
 
   useEffect(() => {
@@ -17,11 +25,15 @@ export function VideoProjectActions({ projectId, projectTitle }: { projectId: st
       try {
         const response = await fetch(`/api/videos/${projectId}/render-job`, { cache: 'no-store' });
         const payload = await response.json();
-        const job = payload.job as { status?: string; error?: string; outputPath?: string } | null;
-        if (cancelled || !job?.status) return;
+        const job = payload.job as { status?: string; stage?: string; progress?: number; error?: string; outputPath?: string } | null;
+        if (cancelled) return;
+        if (!job?.status) {
+          if (jobStatus === 'queued' || jobStatus === 'running') timer = setTimeout(poll, 2500);
+          return;
+        }
         setJobStatus(job.status);
-        if (job.status === 'queued') setMessage('渲染任务已进入队列，等待执行...');
-        if (job.status === 'running') setMessage('渲染任务执行中，请稍等...');
+        if (job.status === 'queued') setMessage(job.error || '生成任务已进入队列，等待执行...');
+        if (job.status === 'running') setMessage(job.error || `生成中：${job.stage || '正在输出成片'}${typeof job.progress === 'number' ? `（${job.progress}%）` : ''}`);
         if (job.status === 'completed') setMessage(`项目《${projectTitle}》渲染完成，已在新窗口打开最新详情。`);
         if (job.status === 'failed') setMessage(job.error || '渲染任务失败');
         if (job.status === 'cancelled') setMessage(job.error || '已停止生成。');
@@ -41,7 +53,29 @@ export function VideoProjectActions({ projectId, projectTitle }: { projectId: st
       cancelled = true;
       if (timer) clearTimeout(timer);
     };
-  }, [pendingRenderWindow, projectId, projectTitle]);
+  }, [jobStatus, pendingRenderWindow, projectId, projectTitle]);
+
+  useEffect(() => {
+    setJobStatus(initialJobStatus);
+  }, [initialJobStatus, projectId]);
+
+  const isActiveJob = jobStatus === 'queued' || jobStatus === 'running';
+  const primaryLabel = busy === 'render'
+    ? '提交中...'
+    : jobStatus === 'queued'
+      ? '排队中...'
+      : jobStatus === 'running'
+        ? '生成中...'
+        : hasOutput
+          ? '重新生成成片'
+          : projectStatus === 'storyboarded' || projectStatus === 'draft'
+            ? '开始生成成片'
+            : '生成成片';
+  const actionHint = isActiveJob
+    ? '任务已经提交，下面会持续显示队列和渲染进度。'
+    : hasOutput
+      ? '已有成片；如修改了脚本或分镜，可以重新生成。'
+      : '当前还没有执行生成，点击“开始生成成片”才会进入队列。';
 
   async function regenerateStoryboard() {
     const nextWindow = openPendingWindow();
@@ -79,7 +113,8 @@ export function VideoProjectActions({ projectId, projectTitle }: { projectId: st
       }
       setJobStatus(payload.job?.status || 'queued');
       setPendingRenderWindow(nextWindow);
-      setMessage('渲染任务已创建，系统会异步执行。');
+      window.dispatchEvent(new CustomEvent('video-render-started', { detail: { projectId } }));
+      setMessage('生成任务已创建，系统会异步执行。状态会在这里持续更新。');
     } catch (error) {
       nextWindow?.close();
       setMessage(error instanceof Error ? error.message : '渲染视频失败');
@@ -134,10 +169,10 @@ export function VideoProjectActions({ projectId, projectTitle }: { projectId: st
         <button onClick={regenerateStoryboard} disabled={busy !== null} style={secondaryButtonStyle(busy === 'storyboard')}>
           {busy === 'storyboard' ? '生成中...' : '重新生成分镜'}
         </button>
-        <button onClick={renderProject} disabled={busy !== null || jobStatus === 'queued' || jobStatus === 'running'} style={primaryButtonStyle(busy === 'render' || jobStatus === 'queued' || jobStatus === 'running')}>
-          {busy === 'render' ? '提交中...' : jobStatus === 'queued' ? '排队中...' : jobStatus === 'running' ? '渲染中...' : '重新渲染项目'}
+        <button onClick={renderProject} disabled={busy !== null || isActiveJob} style={primaryButtonStyle(busy === 'render' || isActiveJob)}>
+          {primaryLabel}
         </button>
-        {jobStatus === 'queued' || jobStatus === 'running' ? (
+        {isActiveJob ? (
           <button onClick={stopProject} disabled={busy !== null} style={dangerButtonStyle(busy === 'stop', 'warning')}>
             {busy === 'stop' ? '停止中...' : '停止生成'}
           </button>
@@ -146,6 +181,7 @@ export function VideoProjectActions({ projectId, projectTitle }: { projectId: st
           {busy === 'delete' ? '删除中...' : '删除视频'}
         </button>
       </div>
+      <div style={{ color: '#94a3b8', lineHeight: 1.7 }}>{actionHint}</div>
       {message ? <div style={{ color: '#93c5fd', lineHeight: 1.7 }}>{message}</div> : null}
     </div>
   );

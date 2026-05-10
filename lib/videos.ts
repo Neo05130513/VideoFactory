@@ -3,11 +3,12 @@ import { existsSync } from 'fs';
 import { promisify } from 'util';
 import path from 'path';
 import { generateImageWithMiniMax, isMiniMaxConfigured, synthesizeSpeechWithMiniMax } from './providers/minimax';
+import { generateImageWithOpenAI, isOpenAIImageConfigured, isOpenAISpeechConfigured, synthesizeSpeechWithOpenAI } from './providers/openai';
 import { nowIso, readJsonFile, simpleId, writeJsonFile, writeTextFile, ensureDirectory } from './storage';
 import { commandExists, getExecutablePath } from './runtime/commands';
 import { generatedRelativePath, publicPathFromRelative, resolveAppPath } from './runtime/paths';
 import { buildScriptShotBreakdown } from './script-shots';
-import { planStoryboardWithMiniMax } from './storyboard-planner';
+import { planStoryboardWithAI } from './storyboard-planner';
 import { Script, StoryboardReview, Topic, Tutorial, VideoAspectRatio, VideoAsset, VideoOpsStatus, VideoProject, VideoPublishTier, VideoScene, VideoShotType, VideoTemplate, VideoVisualPreset, VideoVisualType } from './types';
 
 function formatErrorMessage(error: unknown) {
@@ -117,32 +118,100 @@ function buildScene(params: {
   };
 }
 
+function stripVisualNoise(value: string) {
+  return value
+    .replace(/^content-hash:.*/i, '')
+    .replace(/[《》"'“”‘’]/g, '')
+    .replace(/^(所以|然后|最后|因此|同时|另外|其实|就是|我们|你会发现|这里要|先把|需要把|原文给得很明确)/, '')
+    .replace(/实体企业做AI最容易踩的坑：一上来先做宣传，结果效率没起来/g, '')
+    .replace(/很多实体企业把AI优先用在写文案做宣传，短期看热闹但内部依旧被重复咨询、文档表格/g, '')
+    .trim();
+}
+
+function isUsefulVisualTerm(value: string) {
+  const text = stripVisualNoise(value);
+  if (!text) return false;
+  if (/^content-hash/i.test(text)) return false;
+  if (text.length < 2 || text.length > 18) return false;
+  if (/^(避坑型|销售|document|AI|第一|第二|第三|第四|第五|一是|二是|三是|四是|五是)$/.test(text)) return false;
+  return true;
+}
+
+function compactVisualLabel(value: string, maxLength = 16) {
+  const cleaned = stripVisualNoise(value)
+    .replace(/^第?[一二三四五六七八九十\d]+块是/, '')
+    .replace(/^块是/, '')
+    .replace(/^第?[一二三四五六七八九十\d]+个/, '')
+    .replace(/有没有/g, '')
+    .trim();
+  if (!cleaned) return '';
+  return cleaned.length <= maxLength ? cleaned : `${cleaned.slice(0, maxLength - 1)}…`;
+}
+
 function sceneKeywords(text: string, fallback: string[] = []) {
   const words = text
     .split(/[，。！？；、：\s]/)
-    .map((item) => item.trim())
-    .filter((item) => item.length >= 2 && item.length <= 10);
-  return Array.from(new Set([...fallback, ...words])).slice(0, 5);
+    .map((item) => compactVisualLabel(item, 12))
+    .filter(isUsefulVisualTerm);
+  return Array.from(new Set([...words, ...fallback.map((item) => compactVisualLabel(item, 12)).filter(isUsefulVisualTerm)])).slice(0, 5);
+}
+
+function extractExplicitItems(text: string) {
+  const normalized = stripVisualNoise(text);
+  const knownGroups: Array<[RegExp, string[]]> = [
+    [/真正该先做.*客户管理|最耗人.*最重复.*最容易出错|实体企业上AI/, ['客户管理流程', '重复咨询', '文档表格', '销售跟进']],
+    [/客服和客户咨询|标准问答.*搭好|重复回答|客服时间.*释放/, ['高频咨询', '标准问答', '释放客服时间', '减少人工消耗']],
+    [/文件版本混乱|字段反复改|同一客户信息.*不一致|文档和表格处理/, ['版本统一', '字段校验', '信息一致', '减少返工']],
+    [/销售跟进和内部信息整理|客户信息分散在聊天|文件和个人记忆|跟进.*断层/, ['客户信息归集', '聊天记录', '文件资料', '跟进不断层']],
+    [/内部客户流程仍旧混乱|外部流量.*咨询|交付.*跟进环节|对外宣传.*承接/, ['内部流程先稳', '咨询承接', '交付衔接', '跟进闭环']],
+    [/盘点高频咨询问题|文档表格的四类错误|销售跟进的信息归集|阶段看板/, ['标准答复库', '文档检查卡', '阶段看板', '小范围试跑']],
+    [/客服与咨询应答|文档与表格处理|销售跟进与信息整理|三块内部高频工作/, ['客服咨询应答', '文档表格处理', '销售跟进整理']],
+    [/型号差异|价格区间|交期|能否定制|售后规则/, ['型号差异', '价格区间', '交期', '能否定制', '售后规则']],
+    [/版本发错|参数漏掉|表格列没对齐|客户信息没同步/, ['版本发错', '参数漏掉', '列没对齐', '信息没同步']],
+    [/常规问题.*标准答复|深入问题.*人工|咨询分层/, ['常规问题标准答复', '深入问题转人工', '体验稳定']],
+    [/前端咨询|中段文档|后段跟进/, ['前端咨询口径', '中段文档准确', '后段跟进状态']],
+    [/人工负担.*变轻|流程衔接.*更顺|客户体验.*更稳/, ['负担变轻', '衔接更顺', '体验更稳']],
+    [/高频咨询五问|文档四项校验|跟进阶段看板/, ['高频咨询五问', '文档四项校验', '跟进阶段看板']],
+    [/写文案|做视频|发内容|对外展示/, ['写文案', '做视频', '发内容', '对外展示']],
+    [/是否吃人工|是否高度重复|是否容易先见效果/, ['吃人工', '高度重复', '先见效果']],
+    [/跟进节奏断|交接不完整|关键细节想不起来/, ['节奏断', '交接缺口', '细节遗失']],
+    [/响应速度|返工次数|跟进连续性/, ['响应速度', '返工次数', '跟进连续性']]
+  ];
+
+  for (const [pattern, items] of knownGroups) {
+    if (pattern.test(normalized)) return items;
+  }
+
+  const colonList = normalized.match(/[：:]([^。！？；]+)/)?.[1] || '';
+  const listSource = colonList.length >= 10 ? colonList : normalized;
+  const candidates = listSource
+    .split(/[，、]/)
+    .map((item) => item
+      .replace(/^第?[一二三四五六七八九十\d]+块是/, '')
+      .replace(/^(第一|第二|第三|第四|第五|一是|二是|三是|四是|五是|先|再|最后)\s*/, '')
+      .replace(/^块是/, '')
+      .trim())
+    .map((item) => compactVisualLabel(item, 16))
+    .filter(isUsefulVisualTerm);
+
+  return Array.from(new Set(candidates)).slice(0, 5);
 }
 
 function sceneCards(text: string, maxItems = 4) {
+  const explicitItems = extractExplicitItems(text);
+  if (explicitItems.length) return explicitItems.slice(0, maxItems);
+
   const parts = text
-    .split(/[。！？；，、]/)
-    .map((item) => item.replace(/^\d+[.、]\s*/, '').trim())
-    .map((item) => item.replace(/^(所以|然后|最后|因此|同时|另外|其实|就是|我们|你会发现)/, '').trim())
-    .filter((item) => item.length >= 3 && item.length <= 18);
-  if (parts.length) return parts.slice(0, maxItems);
+    .split(/[。！？；]/)
+    .flatMap((sentence) => sentence.split(/[，、]/))
+    .map((item) => compactVisualLabel(item, 16))
+    .filter(isUsefulVisualTerm);
+  if (parts.length) return Array.from(new Set(parts)).slice(0, maxItems);
   return text.match(/.{1,12}/g)?.slice(0, maxItems) || [text];
 }
 
 function shortenFragment(text: string, maxLength: number) {
-  const cleaned = text
-    .replace(/^\d+[.、]\s*/, '')
-    .replace(/[《》"'“”‘’]/g, '')
-    .replace(/^(所以|然后|最后|因此|同时|另外|其实|就是|我们|你会发现|这里要|先把|需要把)/, '')
-    .trim();
-  if (!cleaned) return '';
-  return cleaned.slice(0, maxLength);
+  return compactVisualLabel(text, maxLength);
 }
 
 function buildHeadline(text: string, fallback: string, maxLength = 16) {
@@ -154,17 +223,16 @@ function buildHeadline(text: string, fallback: string, maxLength = 16) {
 }
 
 function buildSceneCards(text: string, layout: VideoScene['layout'], fallbackTerms: string[] = []) {
-  const clauses = text
-    .split(/[。！？；]/)
-    .flatMap((sentence) => sentence.split(/[，、]/))
-    .map((item) => shortenFragment(item, layout === 'timeline' ? 10 : 12))
-    .filter((item) => item.length >= 2);
+  const explicitItems = extractExplicitItems(text);
+  const cards = explicitItems.length ? explicitItems : sceneCards(text, layout === 'timeline' || layout === 'process' ? 5 : 4);
+  const fallbackCards = fallbackTerms.map((item) => compactVisualLabel(item, 12)).filter(isUsefulVisualTerm);
+  const maxItems = layout === 'process' || layout === 'timeline' || layout === 'checklist' ? 5 : 4;
+  return Array.from(new Set([...cards, ...fallbackCards])).slice(0, maxItems);
+}
 
-  const deduped = Array.from(new Set([...clauses, ...fallbackTerms.map((item) => shortenFragment(item, 10)).filter(Boolean)]));
-  const maxItems = layout === 'process' || layout === 'timeline' ? 3 : layout === 'network' || layout === 'matrix' ? 4 : 4;
-
-  if (deduped.length) return deduped.slice(0, maxItems);
-  return sceneCards(text, maxItems).map((item) => shortenFragment(item, 10)).filter(Boolean);
+function buildRichVisualPrompt(title: string, cards: string[], text: string) {
+  const cardText = cards.length ? `核心模块：${cards.join(' / ')}` : `核心信息：${compactVisualLabel(text, 42)}`;
+  return `业务信息图页面《${title}》。${cardText}。画面要围绕当前旁白做结构化表达，避免抽象科技装饰和无关词云。`;
 }
 
 function inferSemanticLayout(text: string, shotType: VideoShotType, order: number) {
@@ -211,34 +279,39 @@ function chooseAiLayout(shotType: VideoShotType, order: number) {
 function aiSceneMetadata(params: {
   shotType: VideoShotType;
   order: number;
+  title: string;
   text: string;
   topic: Topic;
   tutorial: Tutorial;
   script: Script;
-}): Pick<VideoScene, 'layout' | 'headline' | 'emphasis' | 'keywords' | 'cards' | 'chartData' | 'transition'> {
+}): Pick<VideoScene, 'layout' | 'headline' | 'emphasis' | 'keywords' | 'cards' | 'chartData' | 'transition' | 'visualPrompt'> {
   const cleanedText = params.text.replace(/^\d+[.、]\s*/, '').trim();
-  const layout = inferSemanticLayout(cleanedText, params.shotType, params.order);
-  const titleSource =
+  const sceneTitle = compactVisualLabel(params.title, params.shotType === 'title' ? 18 : 16) || buildHeadline(cleanedText, params.script.title);
+  const layout = inferSemanticLayout(`${sceneTitle}。${cleanedText}`, params.shotType, params.order);
+  const headline =
     params.shotType === 'title'
-      ? params.script.hook || params.script.title
+      ? buildHeadline(params.script.hook || params.script.title, params.script.title, 16)
       : params.shotType === 'cta'
-        ? params.script.cta || cleanedText
-        : cleanedText;
-  const headline = buildHeadline(titleSource, params.script.title, params.shotType === 'title' ? 14 : 16);
+        ? '一周试跑清单'
+        : sceneTitle;
+  const keywords = sceneKeywords(cleanedText);
+  const cards = buildSceneCards(cleanedText, layout, keywords);
   const emphasis =
     params.shotType === 'title'
-      ? params.topic.angle
+      ? '先稳客户管理'
       : params.shotType === 'cta'
         ? '立即执行'
-        : sceneKeywords(cleanedText, [params.topic.painPoint]).find((item) => item !== headline)?.slice(0, 14);
-  const keywords = sceneKeywords(cleanedText, [params.topic.title, params.topic.angle, ...(params.tutorial.tags || []).slice(0, 2)]);
-  const cards = buildSceneCards(cleanedText, layout, keywords);
+        : cards.find((item) => item !== headline)?.slice(0, 14) || keywords.find((item) => item !== headline)?.slice(0, 14) || '业务流程';
   const chartData =
-    params.shotType === 'result'
-      ? [26, 44, 58, 76, 91]
-      : params.shotType === 'step' && (layout === 'matrix' || layout === 'network' || layout === 'pyramid')
-        ? [18, 32, 47, 63]
-        : undefined;
+    /三类结果|负担变轻|衔接更顺|体验.*更稳/.test(cleanedText)
+      ? [38, 58, 78, 88, 94]
+      : /宣传|混乱|消耗|承接/.test(cleanedText)
+        ? [72, 62, 48, 34]
+        : params.shotType === 'result'
+          ? [26, 44, 58, 76, 91]
+          : params.shotType === 'step' && (layout === 'matrix' || layout === 'network' || layout === 'pyramid')
+            ? [24, 42, 60, 78]
+            : undefined;
   const transition =
     params.shotType === 'title'
       ? 'zoom'
@@ -259,7 +332,8 @@ function aiSceneMetadata(params: {
     keywords,
     cards,
     chartData,
-    transition
+    transition,
+    visualPrompt: buildRichVisualPrompt(headline, cards, cleanedText)
   };
 }
 
@@ -373,13 +447,13 @@ function summarizeVisualIntent(scene: VideoScene) {
   }
 }
 
-function buildMiniMaxImagePrompt(project: VideoProject, scene: VideoScene) {
+function buildAIImagePrompt(project: VideoProject, scene: VideoScene) {
   const accent = getSceneAccent(project, scene.shotType);
   const safeSubtitle = scene.subtitle.replace(/[“”"']/g, '').slice(0, 120);
   const safeVisualPrompt = scene.visualPrompt.replace(/[“”"']/g, '').slice(0, 200);
 
   return [
-    'Create one high-end cinematic vertical short-video keyframe for Chinese social media.',
+    `Create one high-end cinematic ${project.aspectRatio === '16:9' ? 'landscape explainer video' : 'vertical short-video'} keyframe for Chinese social media.`,
     `Aspect ratio ${project.aspectRatio}, full-screen ${project.aspectRatio === '16:9' ? 'landscape' : 'portrait'} composition, realistic photography style, not illustration, not cartoon.`,
     'Subject matter: AI-powered product presentation workflow, modern Chinese tech workplace, premium monitor setup, clean desk, refined startup office atmosphere.',
     `Scene goal: ${summarizeVisualIntent(scene)}.`,
@@ -547,13 +621,55 @@ function evaluatePublishability(params: {
   return { publishScore, publishTier };
 }
 
+function getVideoImageProvider() {
+  const provider = (process.env.VIDEO_IMAGE_PROVIDER || process.env.IMAGE_GENERATION_PROVIDER || 'openai').toLowerCase();
+  return provider === 'minimax' ? 'minimax' : 'openai';
+}
+
+function getVideoSpeechProvider() {
+  const provider = (process.env.VIDEO_SPEECH_PROVIDER || process.env.VIDEO_TTS_PROVIDER || process.env.TTS_PROVIDER || 'openai').toLowerCase();
+  return provider === 'minimax' ? 'minimax' : 'openai';
+}
+
 async function createSceneImageAsset(project: VideoProject, scene: VideoScene) {
   const relativePath = generatedRelativePath('image', project.id, `${scene.order.toString().padStart(2, '0')}-${scene.shotType}.png`);
+  const provider = getVideoImageProvider();
 
-  if (isMiniMaxConfigured()) {
+  if (provider === 'openai' && isOpenAIImageConfigured()) {
+    try {
+      const generated = await generateImageWithOpenAI({
+        prompt: buildAIImagePrompt(project, scene),
+        outputRelativePath: relativePath,
+        width: 1080,
+        height: 1920
+      });
+      if (generated) {
+        return {
+          relativePath,
+          publicPath: generated.publicPath,
+          provider: 'openai' as const
+        };
+      }
+      console.warn('OpenAI image generation returned empty payload; fallback to local card', {
+        projectId: project.id,
+        sceneId: scene.id,
+        shotType: scene.shotType
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn('OpenAI image generation failed; fallback to local card', {
+        projectId: project.id,
+        sceneId: scene.id,
+        shotType: scene.shotType,
+        message
+      });
+    }
+  }
+
+  if (provider === 'minimax' && isMiniMaxConfigured()) {
     try {
       const generated = await generateImageWithMiniMax({
-        prompt: buildMiniMaxImagePrompt(project, scene),
+        prompt: buildAIImagePrompt(project, scene),
         outputRelativePath: relativePath,
         width: 1080,
         height: 1920
@@ -590,24 +706,46 @@ async function createSceneImageAsset(project: VideoProject, scene: VideoScene) {
 }
 
 async function createSceneAudioAsset(project: VideoProject, scene: VideoScene) {
-  if (!isMiniMaxConfigured()) return null;
-
   const relativePath = generatedRelativePath('audio', project.id, `${scene.order.toString().padStart(2, '0')}-${scene.shotType}.mp3`);
-  try {
-    const generated = await synthesizeSpeechWithMiniMax({
-      text: scene.voiceover,
-      outputRelativePath: relativePath,
-      format: 'mp3'
-    });
-    if (!generated) return null;
-    return {
-      relativePath,
-      publicPath: generated.publicPath,
-      provider: 'minimax' as const
-    };
-  } catch {
-    return null;
+  const provider = getVideoSpeechProvider();
+
+  if (provider === 'openai' && isOpenAISpeechConfigured()) {
+    try {
+      const generated = await synthesizeSpeechWithOpenAI({
+        text: scene.voiceover,
+        outputRelativePath: relativePath,
+        format: 'mp3'
+      });
+      if (!generated) return null;
+      return {
+        relativePath,
+        publicPath: generated.publicPath,
+        provider: 'openai' as const
+      };
+    } catch {
+      return null;
+    }
   }
+
+  if (provider === 'minimax' && isMiniMaxConfigured()) {
+    try {
+      const generated = await synthesizeSpeechWithMiniMax({
+        text: scene.voiceover,
+        outputRelativePath: relativePath,
+        format: 'mp3'
+      });
+      if (!generated) return null;
+      return {
+        relativePath,
+        publicPath: generated.publicPath,
+        provider: 'minimax' as const
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  return null;
 }
 
 function buildSubtitleTimeline(project: VideoProject, scenes: VideoScene[]) {
@@ -744,6 +882,41 @@ async function readVideoState() {
   return { projects, scenes, assets, scripts, topics, tutorials };
 }
 
+async function mergeProjectWrite(project: VideoProject, projectScenes: VideoScene[]) {
+  const [latestProjects, latestScenes] = await Promise.all([
+    readJsonFile<VideoProject[]>('data/video-projects.json'),
+    readJsonFile<VideoScene[]>('data/video-scenes.json')
+  ]);
+
+  const nextProjects = [project, ...latestProjects.filter((item) => item.id !== project.id)];
+  const nextScenes = [...projectScenes, ...latestScenes.filter((item) => item.projectId !== project.id)];
+
+  await Promise.all([
+    writeJsonFile('data/video-projects.json', nextProjects),
+    writeJsonFile('data/video-scenes.json', nextScenes)
+  ]);
+}
+
+async function replaceProjectWrite(projectId: string, nextProject: VideoProject, projectScenes: VideoScene[]) {
+  const [latestProjects, latestScenes] = await Promise.all([
+    readJsonFile<VideoProject[]>('data/video-projects.json'),
+    readJsonFile<VideoScene[]>('data/video-scenes.json')
+  ]);
+
+  const projectIndex = latestProjects.findIndex((item) => item.id === projectId);
+  if (projectIndex === -1) {
+    throw new Error('Video project no longer exists');
+  }
+
+  latestProjects[projectIndex] = nextProject;
+  const nextScenes = [...projectScenes, ...latestScenes.filter((item) => item.projectId !== projectId)];
+
+  await Promise.all([
+    writeJsonFile('data/video-projects.json', latestProjects),
+    writeJsonFile('data/video-scenes.json', nextScenes)
+  ]);
+}
+
 function ensureScriptTopicTutorial(state: Awaited<ReturnType<typeof readVideoState>>, project: VideoProject) {
   const script = state.scripts.find((item) => item.id === project.scriptId);
   if (!script) throw new Error('Script not found');
@@ -767,11 +940,12 @@ function ensureScriptTopicTutorialByScript(state: Awaited<ReturnType<typeof read
 export function buildStoryboard(project: VideoProject, script: Script, topic: Topic, tutorial: Tutorial): VideoScene[] {
   const scriptShots = buildScriptShotBreakdown(script, tutorial);
   const useTechTemplate = project.template === 'tech-explainer-v1';
+  const useRichMotionTemplate = project.template === 'ai-explainer-short-v1' || project.template === 'hyperframes-explainer-v1';
 
   return scriptShots.map((shot) => {
     const shotType = shot.shotType;
-    const aiMeta = project.template === 'ai-explainer-short-v1'
-      ? aiSceneMetadata({ shotType, order: shot.order, text: shot.voiceover, topic, tutorial, script })
+    const aiMeta = useRichMotionTemplate
+      ? aiSceneMetadata({ shotType, order: shot.order, title: shot.title, text: shot.voiceover, topic, tutorial, script })
       : null;
     return buildScene({
       projectId: project.id,
@@ -780,7 +954,7 @@ export function buildStoryboard(project: VideoProject, script: Script, topic: To
       visualType: useTechTemplate ? inferTechVisualType(shot.voiceover, shotType) : shot.visualType,
       visualPrompt: useTechTemplate
         ? buildTechVisualPrompt({ project, script, topic, tutorial, shotType, text: shot.voiceover, order: shot.order })
-        : shot.visualPrompt,
+        : aiMeta?.visualPrompt || shot.visualPrompt,
       voiceover: shot.voiceover,
       subtitle: shot.subtitle,
       durationSec: shot.durationSec,
@@ -795,13 +969,64 @@ export function buildStoryboard(project: VideoProject, script: Script, topic: To
   });
 }
 
+const LOCAL_STORYBOARD_PROVIDER_VALUES = new Set(['local', 'rule', 'rules', 'fallback', 'none', 'off', 'false', 'disabled']);
+
+function getStoryboardPlannerProvider() {
+  return (process.env.STORYBOARD_PLANNER_PROVIDER || process.env.VIDEO_STORYBOARD_PROVIDER || 'ai').trim().toLowerCase();
+}
+
+function shouldUseAIStoryboardPlanner() {
+  return !LOCAL_STORYBOARD_PROVIDER_VALUES.has(getStoryboardPlannerProvider());
+}
+
+function shouldFallbackStoryboardOnAIError() {
+  return process.env.STORYBOARD_FALLBACK_ON_AI_ERROR !== 'false';
+}
+
+async function buildLocalStoryboardWithReview(params: {
+  project: VideoProject;
+  script: Script;
+  topic: Topic;
+  tutorial: Tutorial;
+  score: number;
+  issue: string;
+  reasons: string[];
+}) {
+  const scenes = buildStoryboard(params.project, params.script, params.topic, params.tutorial);
+
+  await appendStoryboardReview({
+    projectId: params.project.id,
+    source: 'rule-fallback',
+    score: params.score,
+    issues: [params.issue],
+    reasons: params.reasons,
+    retried: false,
+    usedFallback: true,
+    scenes
+  });
+
+  return scenes;
+}
+
 export async function buildStoryboardWithPlanner(project: VideoProject, script: Script, topic: Topic, tutorial: Tutorial): Promise<VideoScene[]> {
+  if (!shouldUseAIStoryboardPlanner()) {
+    return buildLocalStoryboardWithReview({
+      project,
+      script,
+      topic,
+      tutorial,
+      score: 72,
+      issue: 'AI storyboard planner disabled; used local storyboard builder.',
+      reasons: [`STORYBOARD_PLANNER_PROVIDER=${getStoryboardPlannerProvider()}`]
+    });
+  }
+
   try {
-    const planned = await planStoryboardWithMiniMax({ project, script, topic, tutorial });
+    const planned = await planStoryboardWithAI({ project, script, topic, tutorial });
     if (planned?.scenes?.length) {
       await appendStoryboardReview({
         projectId: project.id,
-        source: 'minimax',
+        source: 'openai',
         model: planned.model,
         endpoint: planned.endpoint,
         score: planned.quality.score,
@@ -813,8 +1038,33 @@ export async function buildStoryboardWithPlanner(project: VideoProject, script: 
       });
       return planned.scenes;
     }
-    throw new Error('MiniMax storyboard planner is unavailable and fallback is disabled');
+
+    if (shouldFallbackStoryboardOnAIError()) {
+      return buildLocalStoryboardWithReview({
+        project,
+        script,
+        topic,
+        tutorial,
+        score: 64,
+        issue: 'AI storyboard planner returned no scenes; used local fallback.',
+        reasons: ['AI planner returned an empty storyboard.']
+      });
+    }
+
+    throw new Error('AI storyboard planner is unavailable and fallback is disabled');
   } catch (error) {
+    if (shouldFallbackStoryboardOnAIError()) {
+      return buildLocalStoryboardWithReview({
+        project,
+        script,
+        topic,
+        tutorial,
+        score: 64,
+        issue: 'AI storyboard planner failed; used local fallback.',
+        reasons: [`AI planner error: ${formatErrorMessage(error)}`]
+      });
+    }
+
     throw new Error(`Storyboard planner failed: ${formatErrorMessage(error)}`);
   }
 }
@@ -894,17 +1144,10 @@ export async function createVideoProjectFromScriptWithOptions(scriptId: string, 
   };
 
   const projectScenes = await buildStoryboardWithPlanner(project, script, topic, tutorial);
-  const nextProjects = [project, ...state.projects];
-  const nextScenes = [...projectScenes, ...state.scenes];
 
   project.status = 'storyboarded';
   project.updatedAt = nowIso();
-  nextProjects[0] = project;
-
-  await Promise.all([
-    writeJsonFile('data/video-projects.json', nextProjects),
-    writeJsonFile('data/video-scenes.json', nextScenes)
-  ]);
+  await mergeProjectWrite(project, projectScenes);
 
   return { project, scenes: projectScenes, script, topic, tutorial };
 }
@@ -934,13 +1177,7 @@ export async function regenerateStoryboard(projectId: string) {
   };
   const projectScenes = await buildStoryboardWithPlanner(nextProject, script, topic, tutorial);
 
-  state.projects[projectIndex] = nextProject;
-  const nextScenes = [...projectScenes, ...state.scenes.filter((item) => item.projectId !== projectId)];
-
-  await Promise.all([
-    writeJsonFile('data/video-projects.json', state.projects),
-    writeJsonFile('data/video-scenes.json', nextScenes)
-  ]);
+  await replaceProjectWrite(projectId, nextProject, projectScenes);
 
   return { project: nextProject, scenes: projectScenes };
 }
@@ -968,13 +1205,7 @@ export async function regenerateStoryboardFromScript(projectId: string, scriptId
   };
   const projectScenes = await buildStoryboardWithPlanner(nextProject, script, topic, tutorial);
 
-  state.projects[projectIndex] = nextProject;
-  const nextScenes = [...projectScenes, ...state.scenes.filter((item) => item.projectId !== projectId)];
-
-  await Promise.all([
-    writeJsonFile('data/video-projects.json', state.projects),
-    writeJsonFile('data/video-scenes.json', nextScenes)
-  ]);
+  await replaceProjectWrite(projectId, nextProject, projectScenes);
 
   return { project: nextProject, scenes: projectScenes, script, topic, tutorial };
 }

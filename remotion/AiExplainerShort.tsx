@@ -11,6 +11,7 @@ import {
   useVideoConfig
 } from 'remotion';
 import type { RemotionSceneInput, RemotionVideoInput } from './types';
+import { voiceoverVolume } from './audio';
 
 const FPS = 30;
 
@@ -87,7 +88,7 @@ const radius = {
 } as const;
 
 function sceneFrames(scene: RemotionSceneInput) {
-  return Math.max(1, Math.round(scene.durationSec * FPS));
+  return Math.max(1, Math.ceil(scene.durationSec * FPS));
 }
 
 function getSceneStart(scenes: RemotionSceneInput[], index: number) {
@@ -1939,12 +1940,16 @@ export function AiExplainerShort(input: RemotionVideoInput) {
   const palette = palettes[input.project.visualPreset || 'clarity-blue'] || palettes['clarity-blue'];
   return (
     <AbsoluteFill style={{ background: palette.bg, fontFamily: 'Inter, Arial, "PingFang SC", "Microsoft YaHei", sans-serif' }}>
-      {input.scenes.map((scene, index) => (
-        <Sequence key={scene.id} from={getSceneStart(input.scenes, index)} durationInFrames={sceneFrames(scene)}>
-          {scene.audioPath ? <Audio src={staticFile(scene.audioPath.replace(/^\//, ''))} /> : null}
-          <SceneVisual input={input} scene={scene} sceneIndex={index} sceneCount={input.scenes.length} palette={palette} />
-        </Sequence>
-      ))}
+      {input.project.audioPath ? <Audio src={staticFile(input.project.audioPath.replace(/^\//, ''))} /> : null}
+      {input.scenes.map((scene, index) => {
+        const durationInFrames = sceneFrames(scene);
+        return (
+          <Sequence key={scene.id} from={getSceneStart(input.scenes, index)} durationInFrames={durationInFrames}>
+            {scene.audioPath ? <Audio src={staticFile(scene.audioPath.replace(/^\//, ''))} volume={(frame) => voiceoverVolume(frame, durationInFrames)} /> : null}
+            <SceneVisual input={input} scene={scene} sceneIndex={index} sceneCount={input.scenes.length} palette={palette} />
+          </Sequence>
+        );
+      })}
     </AbsoluteFill>
   );
 }

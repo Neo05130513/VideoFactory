@@ -1,5 +1,5 @@
 import { Script, Topic, Tutorial } from './types';
-import { generateTextWithMiniMax, isMiniMaxTextConfigured } from './providers/minimax';
+import { generateText, isTextGenerationConfigured } from './providers/text';
 import { nowIso, simpleId } from './storage';
 
 interface ProfessionalShot {
@@ -19,6 +19,8 @@ type GenerateScriptsProgress = {
   stage: 'requesting-model' | 'validating-result' | 'completed';
   detail: string;
   previewText?: string;
+  streamText?: string;
+  persist?: boolean;
   attempt?: number;
   maxAttempts?: number;
   elapsedMs?: number;
@@ -144,13 +146,51 @@ function stripDirectorNotes(value: string) {
     .trim();
 }
 
+function findFirstJsonObjectEnd(source: string, start: number) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let index = start; index < source.length; index += 1) {
+    const char = source[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === '\\') {
+        escaped = true;
+      } else if (char === '"') {
+        inString = false;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inString = true;
+      continue;
+    }
+    if (char === '{') {
+      depth += 1;
+      continue;
+    }
+    if (char === '}') {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+
+  return -1;
+}
+
 function extractJsonObject(raw: string) {
   const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
   const source = fenced || raw;
   const start = source.indexOf('{');
-  const end = source.lastIndexOf('}');
-  if (start === -1 || end === -1 || end <= start) {
+  if (start === -1) {
     throw new Error('Script response did not contain a JSON object');
+  }
+  const end = findFirstJsonObjectEnd(source, start);
+  if (end === -1 || end <= start) {
+    throw new Error('Script response did not contain a complete JSON object');
   }
   return JSON.parse(source.slice(start, end + 1));
 }
@@ -716,48 +756,51 @@ function draftToBody(draft: ProfessionalScriptDraft) {
   return draft.shots.map((shot) => `${shot.title}：${shot.voiceover}`).join('\n');
 }
 
-function buildMiniMaxScriptError(message: string) {
-  return new Error(`MiniMax 脚本生成失败：${message}`);
+function buildAIScriptError(message: string) {
+  return new Error(`AI 脚本生成失败：${message}`);
 }
 
 async function generateProfessionalDraft(topic: Topic, tutorial: Tutorial, evidence: string[], profile: ReturnType<typeof estimateScriptProfile>, options?: GenerateScriptsOptions) {
   throwIfAborted(options?.signal);
   const fallbackTitle = buildScriptTitle(topic, tutorial, evidence);
-  if (!await isMiniMaxTextConfigured()) {
-    throw buildMiniMaxScriptError('未配置 MINIMAX_API_KEY，已停止脚本生成。');
+  if (!await isTextGenerationConfigured()) {
+    throw buildAIScriptError('未配置 OPENAI_API_KEY，已停止脚本生成。');
   }
 
   try {
     const { systemPrompt, userPrompt } = buildDirectorPrompt(topic, tutorial, evidence, profile);
-    const generated = await generateTextWithMiniMax({
+    const generated = await generateText({
       systemPrompt,
       userPrompt,
       temperature: 0.28,
       maxTokens: 8000,
-      timeoutMs: Number(process.env.MINIMAX_SCRIPT_TIMEOUT_MS || 1_800_000),
-      maxRetries: Number(process.env.MINIMAX_SCRIPT_MAX_RETRIES || 2),
+      stream: true,
+      timeoutMs: Number(process.env.OPENAI_SCRIPT_TIMEOUT_MS || process.env.MINIMAX_SCRIPT_TIMEOUT_MS || 1_800_000),
+      maxRetries: Number(process.env.OPENAI_SCRIPT_MAX_RETRIES || process.env.MINIMAX_SCRIPT_MAX_RETRIES || 2),
       signal: options?.signal,
       onStatus: (status) => options?.onProgress?.({
         stage: status.phase === 'completed' ? 'validating-result' : 'requesting-model',
         detail: status.detail,
         previewText: status.previewText,
+        streamText: status.streamText,
+        persist: status.phase !== 'streaming',
         attempt: status.attempt,
         maxAttempts: status.maxAttempts,
         elapsedMs: status.elapsedMs
       })
     });
     if (!generated?.text) {
-      throw buildMiniMaxScriptError('模型未返回可用文本。');
+      throw buildAIScriptError('模型未返回可用文本。');
     }
     await options?.onProgress?.({
       stage: 'validating-result',
-      detail: 'MiniMax 已返回文本，正在校验脚本结构。',
+      detail: 'AI 已返回文本，正在校验脚本结构。',
       previewText: generated.text.slice(0, 160)
     });
     const parsed = extractJsonObject(generated.text);
     const normalized = normalizeProfessionalDraft(parsed, fallbackTitle);
     if (!normalized) {
-      throw buildMiniMaxScriptError('模型返回内容未通过脚本结构校验。');
+      throw buildAIScriptError('模型返回内容未通过脚本结构校验。');
     }
     const result = {
       ...normalized,
@@ -772,10 +815,10 @@ async function generateProfessionalDraft(topic: Topic, tutorial: Tutorial, evide
     });
     return result;
   } catch (error) {
-    if (error instanceof Error && error.message.startsWith('MiniMax 脚本生成失败：')) {
+    if (error instanceof Error && error.message.startsWith('AI 脚本生成失败：')) {
       throw error;
     }
-    throw buildMiniMaxScriptError(error instanceof Error ? error.message : String(error));
+    throw buildAIScriptError(error instanceof Error ? error.message : String(error));
   }
 }
 
