@@ -171,6 +171,7 @@ function normalizeDisplayText(value?: string | null) {
   return String(value || '')
     .replace(/\s+/g, ' ')
     .replace(/[“”"']/g, '')
+    .replace(/[.…]+$/g, '')
     .trim();
 }
 
@@ -182,17 +183,56 @@ function splitDisplayCandidates(value?: string | null) {
     .filter(Boolean);
 }
 
+const compactSingleCharLabels = new Set(['人', '景', '事']);
+
+function isWeakDisplayLabel(value?: string | null) {
+  const text = normalizeDisplayText(value)
+    .replace(/^第[一二三四五六七八九十]+个问题[，,：:\s]*(是)?/, '')
+    .replace(/^(这个|这份|这些|文档里的|文档里|文档给出的|文档强调|当前原文|最终|需要注意)[，,：:\s]*/, '')
+    .replace(/^是/, '')
+    .trim();
+  return !text
+    || /^(问题|个问题|这个任务|这个品牌|文档|例子|种模式|模式|任务|内容|方式|表达|输出|需要注意|最终判断|核心方法很简单|关键在于|就是三个字|三个字)$/.test(text)
+    || /^(它|这个|这类|这些|文档|比如|因为|而|但|如果|很多|对这个案例来说)/.test(text)
+    || /^在日常运营里/.test(text)
+    || /^[户景事]\S{4,}/.test(text)
+    || /[「“]/.test(text) && !/[」”]/.test(text)
+    || /[支类种条句段项]$/.test(text)
+    || /[的了都在把让用及和跟与或、，：:；;]$/.test(text)
+    || (/[A-Za-z]$/.test(text) && !/(AI|IP|CEO|OiiOii|Lovart|Logo)$/i.test(text));
+}
+
+function isUsefulDisplayLabel(value?: string | null) {
+  const text = normalizeDisplayText(value);
+  if (!text) return false;
+  if (compactSingleCharLabels.has(text)) return true;
+  return text.length >= 2 && !isWeakDisplayLabel(text);
+}
+
 function compactDisplayLabel(value?: string | null, maxLength = 12) {
   let text = normalizeDisplayText(value)
+    .replace(/^第[一二三四五六七八九十]+个问题[，,：:\s]*(是)?/, '')
+    .replace(/^第[一二三四五六七八九十]+种(模式)?[，,：:\s]*(是)?/, '')
+    .replace(/^种(模式)?[，,：:\s]*(是)?/, '')
+    .replace(/^(这个品牌的|这个任务的|这个品牌|这个任务|这份资料的|文档里的|文档里|文档给出的|文档强调|当前原文|最终判断|最终|需要注意)[，,：:\s]*/, '')
+    .replace(/^(这节内容讲的是|这类内容尤其适合)/, '')
     .replace(/^(这里|这类内容|很多品牌|很多|如果|因为|所以|但是|而是|同时|另外|其实|问题是|需要|可以|就是|它可以|它要|它会)/, '')
-    .replace(/^(第一|第二|第三|第四|第五|第六)[步点：:、\s]*/, '')
+    .replace(/^(第一|第二|第三|第四|第五|第六)(?:[步点]|[：:、\s]+)/, '')
     .replace(/^(一是|二是|三是|四是|五是|六是)[：:、\s]*/, '')
-    .replace(/^(把|让|用|通过|完成|实现)/, '')
+    .replace(/^(把|让|通过|完成|实现|用(?!户))/, '')
+    .replace(/^是/, '')
+    .replace(/什么样的/g, '')
     .trim();
 
   if (!text) return '';
+  const quoted = text.match(/[「“]([^」”]{2,18})[」”]/);
+  if (quoted?.[1]) text = quoted[1];
   const clauses = splitDisplayCandidates(text);
-  if (clauses.length > 1) text = clauses[0];
+  if (clauses.length > 1) {
+    text = clauses.find((item) => item.length <= maxLength && isUsefulDisplayLabel(item))
+      || clauses.find((item) => isUsefulDisplayLabel(item))
+      || clauses[0];
+  }
 
   if (text.length > maxLength && text.includes('，')) {
     text = text.split('，').find((item) => item.length >= 2 && item.length <= maxLength) || text;
@@ -230,19 +270,32 @@ function uniqueDisplayLabels(values: string[]) {
 }
 
 function deriveDisplayCards(scene: VideoScene) {
+  const existingCards = uniqueDisplayLabels(
+    (scene.cards || [])
+      .map((item) => compactDisplayLabel(item, 12))
+      .filter(isUsefulDisplayLabel)
+  );
+  const hasCleanExistingCards = existingCards.length >= 3 && (scene.cards || []).every((item) => {
+    const normalized = normalizeDisplayText(item);
+    return normalized.length <= 18 && !/[.…]/.test(normalized) && isUsefulDisplayLabel(compactDisplayLabel(normalized, 12));
+  });
+  if (hasCleanExistingCards) {
+    return existingCards.slice(0, scene.layout === 'process' || scene.layout === 'timeline' || scene.layout === 'checklist' ? 5 : 4);
+  }
+
   const candidates = [
+    ...splitDisplayCandidates(scene.voiceover),
     ...(scene.cards || []),
     ...(scene.keywords || []),
     scene.emphasis || '',
-    ...splitDisplayCandidates(scene.voiceover),
     ...splitDisplayCandidates(scene.subtitle)
   ];
   return uniqueDisplayLabels(
     candidates
       .map((item) => compactDisplayLabel(item, 12))
-      .filter((item) => item.length >= 2)
+      .filter(isUsefulDisplayLabel)
       .filter((item) => item !== compactDisplayLabel(scene.headline, 12))
-  ).slice(0, scene.layout === 'process' || scene.layout === 'timeline' ? 5 : 4);
+  ).slice(0, scene.layout === 'process' || scene.layout === 'timeline' || scene.layout === 'checklist' ? 5 : 4);
 }
 
 function deriveDisplayHeadline(scene: VideoScene, cards: string[]) {
@@ -659,11 +712,7 @@ export async function renderVideoProjectWithRemotion(projectId: string, options:
     state.projects[projectIndex] = completedProject;
     await Promise.all([
       writeJsonFile('data/video-projects.json', state.projects),
-      writeJsonFile('data/video-assets.json', [...createdAssets, ...nextAssets]),
-      writeJsonFile('data/video-scenes.json', [
-        ...renderScenes,
-        ...state.scenes.filter((scene) => scene.projectId !== projectId)
-      ])
+      writeJsonFile('data/video-assets.json', [...createdAssets, ...nextAssets])
     ]);
 
     await options.onProgress?.({ stage: 'completed', progress: 100, detail: 'Render completed.' });

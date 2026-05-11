@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { generateTopics } from '@/lib/topics';
 import { requireApiRole } from '@/lib/api-auth';
 import { appendAuditLog } from '@/lib/audit';
+import { captureReservation, refundReservation, reserveCredits } from '@/lib/credits';
+import { creditErrorStatus } from '@/lib/render-credit';
+import { assertCanAccessOwnedRecord } from '@/lib/ownership';
 import { readJsonFile, writeJsonFile } from '@/lib/storage';
 import { Topic, Tutorial } from '@/lib/types';
 
@@ -19,16 +22,42 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Tutorial not found' }, { status: 404 });
   }
 
-  const generated = await generateTopics(tutorial);
-  const nextTopics = [...generated, ...topics.filter((item) => item.tutorialId !== tutorialId)];
-  await writeJsonFile('data/topics.json', nextTopics);
-  await appendAuditLog({
-    actor: auth.user,
-    action: 'topic.generate',
-    targetType: 'tutorial',
-    targetId: tutorial.id,
-    summary: `生成选题 ${generated.length} 条：${tutorial.title}`
-  });
+  try {
+    assertCanAccessOwnedRecord(auth.user, tutorial.ownerUserId, 'tutorial');
+    const reservation = await reserveCredits({
+      user: auth.user,
+      amount: 5,
+      relatedType: 'pipeline',
+      relatedId: tutorial.id,
+      note: `生成选题：${tutorial.title}`
+    });
 
-  return NextResponse.json({ topics: generated });
+    try {
+      const ownerUserId = tutorial.ownerUserId || (auth.user.role === 'creator' ? auth.user.id : undefined);
+      const generated = (await generateTopics(tutorial)).map((topic) => ({
+        ...topic,
+        ownerUserId
+      }));
+      const nextTopics = [...generated, ...topics.filter((item) => item.tutorialId !== tutorialId)];
+      await writeJsonFile('data/topics.json', nextTopics);
+      await captureReservation(reservation.reservationId, '选题生成完成');
+      await appendAuditLog({
+        actor: auth.user,
+        action: 'topic.generate',
+        targetType: 'tutorial',
+        targetId: tutorial.id,
+        summary: `生成选题 ${generated.length} 条：${tutorial.title}`
+      });
+
+      return NextResponse.json({ topics: generated });
+    } catch (error) {
+      await refundReservation(reservation.reservationId, '选题生成失败');
+      throw error;
+    }
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Failed to generate topics' },
+      { status: creditErrorStatus(error) }
+    );
+  }
 }

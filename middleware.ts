@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const publicPaths = ['/login', '/change-password'];
+const publicPaths = ['/login', '/register', '/pricing', '/change-password'];
 const publicApiPrefixes = ['/api/auth/me', '/api/auth/logout', '/api/auth/change-password'];
 
 export function middleware(request: NextRequest) {

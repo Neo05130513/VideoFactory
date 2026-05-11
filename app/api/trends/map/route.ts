@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
+import { requireApiRole } from '@/lib/api-auth';
+import { getTutorials } from '@/lib/queries';
 import { mapTrendToTutorials } from '@/lib/trends';
-import { readJsonFile } from '@/lib/storage';
-import { Tutorial } from '@/lib/types';
 
 export async function POST(request: Request) {
+  const auth = await requireApiRole(['content']);
+  if (!auth.ok) return auth.response;
+
   const body = await request.json();
   const keyword = body.keyword as string;
 
@@ -11,7 +14,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'keyword is required' }, { status: 400 });
   }
 
-  const tutorials = await readJsonFile<Tutorial[]>('data/tutorials.json');
+  const tutorials = await getTutorials();
   const matches = mapTrendToTutorials(keyword, tutorials);
 
   return NextResponse.json({ matches });

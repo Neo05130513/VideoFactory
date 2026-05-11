@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { requireApiRole } from '@/lib/api-auth';
 import { appendAuditLog } from '@/lib/audit';
+import { ensureCreditAccount } from '@/lib/credits';
 import { createUserAccount } from '@/lib/users';
 import type { UserRole } from '@/lib/types';
 
-const allowedRoles: UserRole[] = ['admin', 'content', 'video', 'ops'];
+const allowedRoles: UserRole[] = ['admin', 'content', 'video', 'ops', 'creator'];
 
 export async function POST(request: Request) {
   const auth = await requireApiRole(['admin']);
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
     }
 
     const user = await createUserAccount({ name, email, password, role });
+    await ensureCreditAccount(user.id);
     await appendAuditLog({
       actor: auth.user,
       action: 'user.create',

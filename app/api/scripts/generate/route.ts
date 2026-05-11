@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { generateScripts } from '@/lib/scripts';
 import { requireApiRole } from '@/lib/api-auth';
 import { appendAuditLog } from '@/lib/audit';
+import { captureReservation, refundReservation, reserveCredits } from '@/lib/credits';
+import { assertCanAccessOwnedRecord } from '@/lib/ownership';
+import { creditErrorStatus } from '@/lib/render-credit';
 import { readJsonFile, writeJsonFile } from '@/lib/storage';
 import { Script, Topic, Tutorial } from '@/lib/types';
 
@@ -27,22 +30,41 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Tutorial not found' }, { status: 404 });
     }
 
-    const generated = await generateScripts(topic, tutorial);
-    const nextScripts = [...generated, ...scripts.filter((item) => item.topicId !== topicId)];
-    await writeJsonFile('data/scripts.json', nextScripts);
-    await Promise.all(generated.map((script) => appendAuditLog({
-      actor: auth.user,
-      action: 'script.generate',
-      targetType: 'script',
-      targetId: script.id,
-      summary: `生成脚本：${script.title}`
-    })));
+    assertCanAccessOwnedRecord(auth.user, topic.ownerUserId || tutorial.ownerUserId, 'topic');
+    const reservation = await reserveCredits({
+      user: auth.user,
+      amount: 8,
+      relatedType: 'pipeline',
+      relatedId: topic.id,
+      note: `生成脚本：${topic.title}`
+    });
 
-    return NextResponse.json({ scripts: generated });
+    try {
+      const ownerUserId = topic.ownerUserId || tutorial.ownerUserId || (auth.user.role === 'creator' ? auth.user.id : undefined);
+      const generated = (await generateScripts(topic, tutorial)).map((script) => ({
+        ...script,
+        ownerUserId
+      }));
+      const nextScripts = [...generated, ...scripts.filter((item) => item.topicId !== topicId)];
+      await writeJsonFile('data/scripts.json', nextScripts);
+      await captureReservation(reservation.reservationId, '脚本生成完成');
+      await Promise.all(generated.map((script) => appendAuditLog({
+        actor: auth.user,
+        action: 'script.generate',
+        targetType: 'script',
+        targetId: script.id,
+        summary: `生成脚本：${script.title}`
+      })));
+
+      return NextResponse.json({ scripts: generated });
+    } catch (error) {
+      await refundReservation(reservation.reservationId, '脚本生成失败');
+      throw error;
+    }
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : '脚本生成失败' },
-      { status: 500 }
+      { status: creditErrorStatus(error) }
     );
   }
 }

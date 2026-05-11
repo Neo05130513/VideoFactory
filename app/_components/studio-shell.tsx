@@ -5,13 +5,14 @@ import { getVideoRuntimeStatus } from '@/lib/queries';
 import { logoutAction } from './top-nav-actions';
 import { newWindowLinkProps } from './studio-ui';
 
-export type StudioNavKey = 'start' | 'scripts' | 'videos' | 'assets' | 'settings';
+export type StudioNavKey = 'start' | 'scripts' | 'videos' | 'assets' | 'pricing' | 'settings';
 
 const navItems: { key: StudioNavKey; href: string; label: string }[] = [
   { key: 'start', href: '/', label: '开始制作' },
   { key: 'scripts', href: '/scripts', label: '脚本' },
   { key: 'videos', href: '/videos', label: '视频库' },
   { key: 'assets', href: '/assets', label: '我的素材' },
+  { key: 'pricing', href: '/pricing', label: '套餐积分' },
   { key: 'settings', href: '/settings', label: '设置' }
 ];
 

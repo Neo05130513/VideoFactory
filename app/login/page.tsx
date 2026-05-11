@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { loginWithPassword, getCurrentUser } from '@/lib/auth';
 
 export default async function LoginPage() {
@@ -33,6 +34,11 @@ export default async function LoginPage() {
           </label>
           <button type="submit" style={buttonStyle}>登录</button>
         </form>
+
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', color: '#cbd5e1' }}>
+          <Link href="/register" style={{ color: '#67e8f9', textDecoration: 'none', fontWeight: 800 }}>注册新账号</Link>
+          <Link href="/pricing" style={{ color: '#c4b5fd', textDecoration: 'none', fontWeight: 800 }}>查看套餐积分</Link>
+        </div>
 
         <div style={{ borderRadius: 16, padding: 14, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(148,163,184,0.14)', color: '#cbd5e1', lineHeight: 1.8 }}>
           演示账号：<br />

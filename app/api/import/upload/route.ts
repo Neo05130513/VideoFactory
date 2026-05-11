@@ -3,6 +3,7 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 import { appendAuditLog } from '@/lib/audit';
 import { requireApiRole } from '@/lib/api-auth';
+import { captureReservation, refundReservation, reserveCredits } from '@/lib/credits';
 import { inferSourceType } from '@/lib/files';
 import { importTutorials } from '@/lib/pipeline';
 import { ensureDirectory, simpleId } from '@/lib/storage';
@@ -40,6 +41,8 @@ export async function POST(request: Request) {
   const auth = await requireApiRole(['content', 'video']);
   if (!auth.ok) return auth.response;
 
+  let reservationId: string | undefined;
+
   try {
     const form = await request.formData();
     const files = form.getAll('documents').filter((item): item is File => item instanceof File && item.size > 0);
@@ -52,14 +55,24 @@ export async function POST(request: Request) {
     }
 
     if (typeof pastedText === 'string' && pastedText.trim()) {
-      inputs.push(await savePastedText(typeof pastedTitle === 'string' ? pastedTitle : '粘贴文本', pastedText.trim()));
+      inputs.push(await savePastedText(typeof pastedTitle === 'string' ? pastedTitle : 'pasted-text', pastedText.trim()));
     }
 
     if (!inputs.length) {
-      return NextResponse.json({ error: '请上传文档或粘贴文本。' }, { status: 400 });
+      return NextResponse.json({ error: 'Upload a document or paste text.' }, { status: 400 });
     }
 
-    const result = await importTutorials(inputs);
+    const reservation = await reserveCredits({
+      user: auth.user,
+      amount: inputs.length * 3,
+      relatedType: 'import',
+      relatedId: simpleId('import_batch'),
+      note: `Import ${inputs.length} document(s)`
+    });
+    reservationId = reservation.reservationId;
+
+    const result = await importTutorials(inputs, { ownerUserId: auth.user.id });
+    await captureReservation(reservationId, 'Import completed');
     await Promise.all((result.created || []).map((tutorial) => appendAuditLog({
       actor: auth.user,
       action: 'tutorial.import.upload',
@@ -69,8 +82,9 @@ export async function POST(request: Request) {
     })));
     return NextResponse.json(result);
   } catch (error) {
+    await refundReservation(reservationId, 'Import failed').catch(() => undefined);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : '文档导入失败' },
+      { error: error instanceof Error ? error.message : 'Document import failed' },
       { status: 500 }
     );
   }

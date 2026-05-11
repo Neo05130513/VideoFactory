@@ -1,6 +1,7 @@
 import { nowIso, readJsonFile, simpleId, writeJsonFile } from './storage';
 import { renderVideoProjectWithRemotion } from './remotion-renderer';
 import { getPerformanceSettings } from './performance/settings';
+import { captureReservation, refundReservation } from './credits';
 import type { RenderJob, VideoProject } from './types';
 
 const DEFAULT_MAX_ATTEMPTS = 2;
@@ -36,7 +37,7 @@ async function updateJobProgress(jobId: string, patch: Partial<Pick<RenderJob, '
   } : job));
 }
 
-export async function enqueueRenderJob(projectId: string, options: { force?: boolean; maxAttempts?: number } = {}) {
+export async function enqueueRenderJob(projectId: string, options: { force?: boolean; maxAttempts?: number; ownerUserId?: string; creditReservationId?: string } = {}) {
   const jobs = await readJobs();
   const activeJob = jobs.find((job) => job.projectId === projectId && (job.status === 'queued' || job.status === 'running'));
   if (activeJob && !options.force) return activeJob;
@@ -44,6 +45,8 @@ export async function enqueueRenderJob(projectId: string, options: { force?: boo
   const now = nowIso();
   const job: RenderJob = {
     id: simpleId('render_job'),
+    ownerUserId: options.ownerUserId,
+    creditReservationId: options.creditReservationId,
     projectId,
     status: 'queued',
     attempt: 0,
@@ -59,10 +62,15 @@ export async function enqueueRenderJob(projectId: string, options: { force?: boo
   return job;
 }
 
-export async function enqueueRenderJobs(projectIds: string[], options: { force?: boolean; maxAttempts?: number } = {}) {
+export async function enqueueRenderJobs(projectIds: string[], options: { force?: boolean; maxAttempts?: number; ownerUserId?: string; ownerUserIdByProjectId?: Record<string, string | undefined>; creditReservationByProjectId?: Record<string, string | undefined> } = {}) {
   const jobs: RenderJob[] = [];
   for (const projectId of projectIds) {
-    jobs.push(await enqueueRenderJob(projectId, options));
+    jobs.push(await enqueueRenderJob(projectId, {
+      force: options.force,
+      maxAttempts: options.maxAttempts,
+      ownerUserId: options.ownerUserIdByProjectId?.[projectId] || options.ownerUserId,
+      creditReservationId: options.creditReservationByProjectId?.[projectId]
+    }));
   }
   return jobs;
 }
@@ -72,8 +80,13 @@ export async function getLatestRenderJob(projectId: string) {
   return jobs.find((job) => job.projectId === projectId) || null;
 }
 
-export async function retryRenderJob(projectId: string) {
-  return enqueueRenderJob(projectId, { force: true, maxAttempts: DEFAULT_MAX_ATTEMPTS });
+export async function retryRenderJob(projectId: string, options: { ownerUserId?: string; creditReservationId?: string } = {}) {
+  return enqueueRenderJob(projectId, {
+    force: true,
+    maxAttempts: DEFAULT_MAX_ATTEMPTS,
+    ownerUserId: options.ownerUserId,
+    creditReservationId: options.creditReservationId
+  });
 }
 
 async function markProjectStopped(projectId: string, message: string) {
@@ -104,6 +117,9 @@ export async function cancelRenderJob(projectId: string) {
     };
   });
   await writeJobs(nextJobs);
+  await Promise.all(nextJobs
+    .filter((job) => job.projectId === projectId && job.status === 'cancelled')
+    .map((job) => refundReservation(job.creditReservationId, 'Render cancelled').catch(() => undefined)));
   await markProjectStopped(projectId, '用户已停止生成');
   if (!hasRunningJob) void processRenderQueue();
   return nextJobs.find((job) => job.projectId === projectId) || null;
@@ -168,6 +184,11 @@ export async function processRenderQueue() {
       return latest;
     }
     const completedAt = nowIso();
+    if (result.remotionReady) {
+      await captureReservation(runningJob.creditReservationId, 'Render completed');
+    } else {
+      await refundReservation(runningJob.creditReservationId, 'Render failed');
+    }
     const completedJob: RenderJob = {
       ...runningJob,
       status: result.remotionReady ? 'completed' : 'failed',
@@ -191,6 +212,9 @@ export async function processRenderQueue() {
     const failedAt = nowIso();
     const message = error instanceof Error ? error.message : 'Render job failed';
     const shouldRetry = runningJob.attempt < runningJob.maxAttempts;
+    if (!shouldRetry) {
+      await refundReservation(runningJob.creditReservationId, 'Render failed');
+    }
     const failedJob: RenderJob = {
       ...runningJob,
       status: shouldRetry ? 'queued' : 'failed',

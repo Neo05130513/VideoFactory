@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
+import { requireApiRole } from '@/lib/api-auth';
+import { captureReservation, refundReservation, reserveCredits } from '@/lib/credits';
 import { processTutorialPipeline } from '@/lib/pipeline';
 
 export async function POST(request: Request) {
+  const auth = await requireApiRole(['content']);
+  if (!auth.ok) return auth.response;
+
   try {
     const body = await request.json();
     const tutorialId = body.tutorialId as string | undefined;
@@ -14,7 +19,21 @@ export async function POST(request: Request) {
 
     const results = [];
     for (const id of targets) {
-      results.push(await processTutorialPipeline(id));
+      const reservation = await reserveCredits({
+        user: auth.user,
+        amount: 25,
+        relatedType: 'pipeline',
+        relatedId: id,
+        note: 'Run script pipeline'
+      });
+      try {
+        const result = await processTutorialPipeline(id);
+        await captureReservation(reservation.reservationId, 'Script pipeline completed');
+        results.push(result);
+      } catch (error) {
+        await refundReservation(reservation.reservationId, 'Script pipeline failed').catch(() => undefined);
+        throw error;
+      }
     }
 
     return NextResponse.json({ results });

@@ -23,7 +23,12 @@ const ALLOWED_LAYOUTS: VideoSceneLayout[] = [
   'cause',
   'timeline',
   'mistake',
-  'pyramid'
+  'pyramid',
+  'spotlight',
+  'quote',
+  'toolchain',
+  'radar',
+  'mosaic'
 ];
 
 const ALLOWED_SHOT_TYPES: VideoShotType[] = ['title', 'pain', 'step', 'result', 'cta'];
@@ -214,9 +219,9 @@ async function extractJsonObjectWithAIRepair<T>(params: {
 }
 
 function inferVisualType(layout: VideoSceneLayout): VideoVisualType {
-  if (layout === 'chart') return 'image';
-  if (layout === 'network' || layout === 'process' || layout === 'timeline') return 'screen';
-  if (layout === 'contrast' || layout === 'cause' || layout === 'mistake' || layout === 'checklist') return 'caption';
+  if (layout === 'chart' || layout === 'radar') return 'image';
+  if (layout === 'network' || layout === 'process' || layout === 'timeline' || layout === 'toolchain') return 'screen';
+  if (layout === 'contrast' || layout === 'cause' || layout === 'mistake' || layout === 'checklist' || layout === 'quote') return 'caption';
   return 'slide';
 }
 
@@ -259,7 +264,12 @@ function normalizeScene(projectId: string, scene: PlannedScene, index: number): 
     18
   );
   const headline = cleanDisplayText(scene.headline, 18) || fallbackHeadline;
-  const cards = cleanStringArray(scene.cards, 4, 12);
+  const cardLimit = layout === 'mosaic'
+    ? 6
+    : layout === 'toolchain' || layout === 'timeline' || layout === 'process' || layout === 'checklist'
+      ? 5
+      : 4;
+  const cards = cleanStringArray(scene.cards, cardLimit, 12);
   const keywords = cleanStringArray(scene.keywords, 6, 10);
   const emphasis = cleanDisplayText(scene.emphasis, 12) || cleanDisplayText(keywords[0], 12) || undefined;
 
@@ -297,6 +307,115 @@ function normalizeScene(projectId: string, scene: PlannedScene, index: number): 
   };
 }
 
+function sceneLayoutText(scene: VideoScene) {
+  return [
+    scene.layout || '',
+    scene.shotType,
+    scene.visualType,
+    scene.headline || '',
+    scene.subtitle || '',
+    scene.emphasis || '',
+    scene.visualPrompt || '',
+    scene.voiceover || '',
+    ...(scene.cards || []),
+    ...(scene.keywords || [])
+  ].join(' ');
+}
+
+function layoutTransition(layout: VideoSceneLayout): NonNullable<VideoScene['transition']> {
+  if (layout === 'timeline' || layout === 'toolchain' || layout === 'process') return 'push';
+  if (layout === 'spotlight' || layout === 'quote' || layout === 'network') return 'zoom';
+  if (layout === 'radar' || layout === 'mistake') return 'flash';
+  if (layout === 'hero' || layout === 'cta') return 'fade';
+  return 'wipe';
+}
+
+function addLayoutCandidate(target: VideoSceneLayout[], layout: VideoSceneLayout) {
+  if (!target.includes(layout)) target.push(layout);
+}
+
+function layoutAlternativesForScene(scene: VideoScene): VideoSceneLayout[] {
+  const text = sceneLayoutText(scene);
+  const candidates: VideoSceneLayout[] = [];
+  if (scene.shotType === 'title') return ['hero'];
+  if (scene.shotType === 'cta') return ['cta'];
+
+  if (/工具|豆包|千问|即梦|Lovart|OiiOii|剪映|海螺|可灵|工具链|分工|协作|链路/.test(text)) {
+    addLayoutCandidate(candidates, 'toolchain');
+    addLayoutCandidate(candidates, 'timeline');
+    addLayoutCandidate(candidates, 'process');
+    addLayoutCandidate(candidates, 'network');
+  }
+  if (/案例|例子|品牌|人物|客户|故事|引用|原文|“|”|「|」/.test(text)) {
+    addLayoutCandidate(candidates, 'quote');
+    addLayoutCandidate(candidates, 'spotlight');
+    addLayoutCandidate(candidates, 'mosaic');
+  }
+  if (/标准|指标|评分|评估|风险|成熟度|判断|质量|边界|门槛/.test(text)) {
+    addLayoutCandidate(candidates, 'radar');
+    addLayoutCandidate(candidates, 'checklist');
+    addLayoutCandidate(candidates, 'matrix');
+  }
+  if (/核心|关键|主张|概念|价值|定位|本质|结论|一句话/.test(text)) {
+    addLayoutCandidate(candidates, 'spotlight');
+    addLayoutCandidate(candidates, 'pyramid');
+    addLayoutCandidate(candidates, 'matrix');
+  }
+  if (/多个|几类|几种|并列|分类|标签|要点|模块|元素|集合|组合/.test(text)) {
+    addLayoutCandidate(candidates, 'mosaic');
+    addLayoutCandidate(candidates, 'matrix');
+    addLayoutCandidate(candidates, 'checklist');
+  }
+
+  if (scene.shotType === 'pain') {
+    addLayoutCandidate(candidates, 'contrast');
+    addLayoutCandidate(candidates, 'cause');
+    addLayoutCandidate(candidates, 'mistake');
+    addLayoutCandidate(candidates, 'radar');
+  } else if (scene.shotType === 'result') {
+    addLayoutCandidate(candidates, 'chart');
+    addLayoutCandidate(candidates, 'radar');
+    addLayoutCandidate(candidates, 'checklist');
+    addLayoutCandidate(candidates, 'spotlight');
+  } else {
+    ['timeline', 'toolchain', 'spotlight', 'network', 'mosaic', 'matrix', 'checklist', 'pyramid', 'quote', 'process'].forEach((layout) => {
+      addLayoutCandidate(candidates, layout as VideoSceneLayout);
+    });
+  }
+
+  return candidates.filter((layout) => layout !== scene.layout);
+}
+
+function diversifyLongVideoLayouts(scenes: VideoScene[]) {
+  if (scenes.length < 7) return scenes;
+  const nextScenes = scenes.map((scene) => ({ ...scene }));
+
+  for (let index = 1; index < nextScenes.length - 1; index += 1) {
+    const scene = nextScenes[index];
+    if (scene.shotType === 'title' || scene.shotType === 'cta') continue;
+
+    const prev = nextScenes[index - 1]?.layout;
+    const prev2 = nextScenes[index - 2]?.layout;
+    const next = nextScenes[index + 1]?.layout;
+    const repeatedNow = scene.layout === prev || (nextScenes.length >= 10 && scene.layout === prev2);
+    const repeatedAhead = nextScenes.length >= 12 && scene.layout === next && index % 3 === 1;
+    if (!repeatedNow && !repeatedAhead) continue;
+
+    const replacement = layoutAlternativesForScene(scene).find((layout) => layout !== prev && layout !== prev2 && layout !== next);
+    if (!replacement) continue;
+
+    nextScenes[index] = {
+      ...scene,
+      layout: replacement,
+      visualType: inferVisualType(replacement),
+      transition: layoutTransition(replacement),
+      visualPrompt: clipText(`${scene.visualPrompt}。长视频防重复调度：本镜头改用 ${replacement} 版式，只展示核心结构，不堆叠旁白全文。`, scene.visualPrompt, 500)
+    };
+  }
+
+  return nextScenes;
+}
+
 function ensureStoryboardShape(project: VideoProject, planned: PlannedStoryboard) {
   const scenes = Array.isArray(planned.scenes) ? planned.scenes : [];
   const normalized = scenes
@@ -324,7 +443,9 @@ function ensureStoryboardShape(project: VideoProject, planned: PlannedStoryboard
     order: normalized.length
   };
 
-  return normalized.map((scene, index) => ({
+  const diversified = diversifyLongVideoLayouts(normalized);
+
+  return diversified.map((scene, index) => ({
     ...scene,
     order: index + 1
   }));
@@ -767,10 +888,12 @@ async function generateStoryboardAttempt(params: {
     'cards 更像节点卡或标签，不像句子。优先使用 2 到 8 个字的名词短语、判断词、结果词、步骤词。',
     '尽量不要在 cards、keywords 里输出逗号拼接、并列长句、解释性短句。一个 card 只表达一个节点。',
     '每个镜头都要先想观众会看到什么卡片、图形、标签，再想旁白如何补解释；展示层即使静音也要看得出大意。',
-    'headline 最多 18 个汉字，subtitle 最多 26 个汉字，cards 最多 4 个且每个尽量控制在 12 个汉字内，避免屏幕拥挤。',
-    'chartData 只在 chart 版式需要时给 5 到 6 个数字；如果输入里有增减、对比、趋势、阶段变化、前后差异，优先使用 chart。',
+    'headline 最多 18 个汉字，subtitle 最多 26 个汉字；普通版式 cards 最多 4 个，timeline/process/toolchain/checklist 最多 5 个，mosaic 最多 6 个；每个 card 尽量控制在 12 个汉字内，避免屏幕拥挤。',
+    'chartData 只在 chart 或 radar 版式需要时给 5 到 6 个数字；如果输入里有增减、对比、趋势、阶段变化、前后差异，优先使用 chart；如果输入里有标准、指标、风险、成熟度、判断条件，优先使用 radar。',
     'transition 必须从 push、zoom、flash、wipe、fade 中选择，每个镜头都给。',
-    '优先使用 hero、contrast、cause、timeline、network、chart、matrix、mistake、pyramid、checklist、cta 的多样组合，同类版式不要连续重复太多。',
+    '优先使用 hero、contrast、cause、timeline、network、chart、matrix、mistake、pyramid、checklist、spotlight、quote、toolchain、radar、mosaic、cta 的多样组合，同类版式不要连续重复太多。',
+    'layout 选择要按内容语义决定：spotlight 用于核心概念或主张聚焦，quote 用于案例/人物/品牌/原文引语，toolchain 用于工具分工和多工具流程，radar 用于标准/指标/风险评估，mosaic 用于多个并列点或信息密集但没有强顺序的内容。',
+    '如果全片超过 8 个 scene，必须把视觉节奏做成长视频结构：开场聚焦、背景/问题、方法展开、案例或证据、结果判断、行动收束；任意连续 5 个 scene 内不要只反复使用 1 到 2 种 layout。',
     '如果是步骤说明，不要把多个动作全部塞进一个 process 镜头，而要拆成多个短镜头，让信息逐步揭示。',
     '如果是观点递进，优先使用排比式多镜头推进，而不是一整段文字。',
     '如果是界面操作、提示词配置、表单填写、流程搭建，优先使用 screen 或 process，并在 visualPrompt 里写清楚动态动作。',

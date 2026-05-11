@@ -1,5 +1,5 @@
 export type SourceType = 'docx' | 'txt' | 'md' | 'html';
-export type UserRole = 'admin' | 'content' | 'video' | 'ops';
+export type UserRole = 'admin' | 'content' | 'video' | 'ops' | 'creator';
 export type TopicAngle = '痛点型' | '方法论型' | '工具实操型' | '避坑型' | '进阶优化型';
 export type Platform = 'document' | 'douyin' | 'kuaishou' | 'bilibili' | 'article';
 export type VideoProjectStatus = 'draft' | 'storyboarded' | 'rendering' | 'completed' | 'failed';
@@ -28,7 +28,12 @@ export type VideoSceneLayout =
   | 'cause'
   | 'timeline'
   | 'mistake'
-  | 'pyramid';
+  | 'pyramid'
+  | 'spotlight'
+  | 'quote'
+  | 'toolchain'
+  | 'radar'
+  | 'mosaic';
 
 export interface TutorialStep {
   title: string;
@@ -37,6 +42,7 @@ export interface TutorialStep {
 
 export interface Tutorial {
   id: string;
+  ownerUserId?: string;
   title: string;
   sourceType: SourceType;
   sourceFile?: string;
@@ -60,6 +66,7 @@ export interface Tutorial {
 
 export interface Topic {
   id: string;
+  ownerUserId?: string;
   tutorialId: string;
   title: string;
   angle: TopicAngle;
@@ -73,6 +80,7 @@ export interface Topic {
 
 export interface Script {
   id: string;
+  ownerUserId?: string;
   topicId: string;
   tutorialId: string;
   platform: Platform;
@@ -89,6 +97,7 @@ export interface Script {
 
 export interface VideoProject {
   id: string;
+  ownerUserId?: string;
   tutorialId: string;
   topicId: string;
   scriptId: string;
@@ -183,6 +192,8 @@ export interface VoiceSettings {
 
 export interface RenderJob {
   id: string;
+  ownerUserId?: string;
+  creditReservationId?: string;
   projectId: string;
   status: RenderJobStatus;
   attempt: number;
@@ -215,6 +226,8 @@ export interface PipelineJobResult {
 
 export interface PipelineJob {
   id: string;
+  ownerUserId?: string;
+  creditReservationId?: string;
   tutorialId: string;
   status: PipelineJobStatus;
   stage: string;
@@ -303,7 +316,7 @@ export interface AuditLog {
   actorName: string;
   actorRole: UserRole;
   action: string;
-  targetType: 'script' | 'video_project' | 'tutorial' | 'topic' | 'system';
+  targetType: 'script' | 'video_project' | 'tutorial' | 'topic' | 'system' | 'credit_account';
   targetId: string;
   summary: string;
   createdAt: string;

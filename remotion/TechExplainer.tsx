@@ -96,6 +96,26 @@ const modeLabels: Record<SceneMode, string> = {
   pyramid: 'MODEL'
 };
 
+const layoutModeMap: Partial<Record<NonNullable<RemotionSceneInput['layout']>, SceneMode>> = {
+  hero: 'hero',
+  contrast: 'contrast',
+  network: 'network',
+  process: 'process',
+  chart: 'chart',
+  matrix: 'matrix',
+  checklist: 'checklist',
+  cta: 'cta',
+  cause: 'cause',
+  timeline: 'timeline',
+  mistake: 'mistake',
+  pyramid: 'pyramid',
+  spotlight: 'matrix',
+  quote: 'checklist',
+  toolchain: 'process',
+  radar: 'chart',
+  mosaic: 'matrix'
+};
+
 function sceneFrames(scene: RemotionSceneInput) {
   return Math.max(1, Math.ceil(scene.durationSec * FPS));
 }
@@ -161,7 +181,10 @@ function hasAny(text: string, words: string[]) {
 }
 
 function classifyMode(scene: RemotionSceneInput): SceneMode {
-  if (scene.layout && modeLabels[scene.layout]) return scene.layout;
+  if (scene.layout) {
+    const mappedMode = layoutModeMap[scene.layout];
+    if (mappedMode) return mappedMode;
+  }
   const text = `${scene.subtitle} ${scene.voiceover} ${scene.visualPrompt}`.toLowerCase();
   if (scene.shotType === 'title') return 'hero';
   if (scene.shotType === 'cta') return 'cta';

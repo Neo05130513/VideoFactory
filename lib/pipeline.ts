@@ -81,11 +81,12 @@ function contentHash(rawContent: string) {
   return createHash('sha1').update(rawContent).digest('hex');
 }
 
-function isDuplicateTutorial(existing: Tutorial[], sourceFile: string, rawContent: string) {
+function isDuplicateTutorial(existing: Tutorial[], sourceFile: string, rawContent: string, ownerUserId?: string) {
   const normalizedFile = path.resolve(resolveRuntimePath(sourceFile));
   const nextHash = contentHash(rawContent);
 
   return existing.find((tutorial) => {
+    if (ownerUserId && tutorial.ownerUserId !== ownerUserId) return false;
     const sameFile = tutorial.sourceFile ? path.resolve(resolveRuntimePath(tutorial.sourceFile)) === normalizedFile : false;
     const sameHash = tutorial.tags.includes(`content-hash:${nextHash}`);
     const sameTitleAndSummary = tutorial.title === normalizeTitleFromPath(sourceFile) && tutorial.rawContent.slice(0, 200) === rawContent.slice(0, 200);
@@ -102,14 +103,14 @@ async function copySourceFileIntoImports(tutorialId: string, sourceFile: string,
   return relativePath;
 }
 
-export async function importTutorials(inputs: ImportInput[]) {
+export async function importTutorials(inputs: ImportInput[], options: { ownerUserId?: string } = {}) {
   const tutorials = await readJsonFile<Tutorial[]>('data/tutorials.json');
   const created: Tutorial[] = [];
   const duplicates: { sourceFile: string; tutorialId: string; title: string }[] = [];
 
   for (const input of inputs) {
     const rawContent = await extractTextFromFile(input.sourceFile, input.sourceType);
-    const duplicate = isDuplicateTutorial(tutorials, input.sourceFile, rawContent);
+    const duplicate = isDuplicateTutorial(tutorials, input.sourceFile, rawContent, options.ownerUserId);
 
     if (duplicate) {
       duplicates.push({ sourceFile: input.sourceFile, tutorialId: duplicate.id, title: duplicate.title });
@@ -121,6 +122,7 @@ export async function importTutorials(inputs: ImportInput[]) {
     const importedSourceFile = await copySourceFileIntoImports(tutorialId, input.sourceFile, input.sourceType);
     const tutorial: Tutorial = {
       id: tutorialId,
+      ownerUserId: options.ownerUserId,
       title: normalizeTitleFromPath(input.sourceFile),
       sourceType: input.sourceType,
       sourceFile: importedSourceFile,
@@ -192,8 +194,10 @@ export async function processTutorialPipeline(
     detail: '正在从文档中提炼选题。'
   });
   const generatedTopics = await generateTopics(parsed);
-  const nextTopics = [...generatedTopics, ...topics.filter((item) => item.tutorialId !== tutorialId)];
-  const totalTopics = generatedTopics.length;
+  const ownerUserId = parsed.ownerUserId;
+  const ownedTopics = generatedTopics.map((topic) => ({ ...topic, ownerUserId }));
+  const nextTopics = [...ownedTopics, ...topics.filter((item) => item.tutorialId !== tutorialId)];
+  const totalTopics = ownedTopics.length;
 
   await emitProgress({
     stage: 'topics-ready',
@@ -203,7 +207,7 @@ export async function processTutorialPipeline(
   });
 
   const generatedScripts: Script[] = [];
-  for (const [index, topic] of generatedTopics.entries()) {
+  for (const [index, topic] of ownedTopics.entries()) {
     throwIfPipelineAborted(options?.signal);
     const topicIndex = index + 1;
     const topicStart = 48 + ((topicIndex - 1) / Math.max(totalTopics, 1)) * 40;
@@ -219,7 +223,7 @@ export async function processTutorialPipeline(
     });
 
     // Avoid bursty parallel text-generation requests that make upstream models time out.
-    const nextScripts = await generateScripts(topic, parsed, {
+    const nextScripts = (await generateScripts(topic, parsed, {
       signal: options?.signal,
       onProgress: async (progress) => {
         const phaseRatio = progress.stage === 'requesting-model' ? 0.45 : progress.stage === 'validating-result' ? 0.78 : 1;
@@ -236,7 +240,7 @@ export async function processTutorialPipeline(
           elapsedMs: progress.elapsedMs
         });
       }
-    });
+    })).map((script) => ({ ...script, ownerUserId }));
     generatedScripts.push(...nextScripts);
     const latestScript = nextScripts[0];
     await emitProgress({
@@ -258,13 +262,13 @@ export async function processTutorialPipeline(
   await mergePipelineArtifacts({
     tutorial: parsed,
     tutorialId,
-    topics: generatedTopics,
+    topics: ownedTopics,
     scripts: generatedScripts
   });
 
   const result = {
     tutorial: parsed,
-    topics: generatedTopics,
+    topics: ownedTopics,
     scripts: generatedScripts,
     scriptShots: generatedScripts.map((script) => ({
       scriptId: script.id,

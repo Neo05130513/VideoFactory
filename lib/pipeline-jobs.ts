@@ -1,4 +1,5 @@
 import { processTutorialPipeline } from './pipeline';
+import { captureReservation, refundReservation } from './credits';
 import { nowIso, readJsonFile, simpleId, writeJsonFile } from './storage';
 import type { PipelineJob, PipelineJobResult } from './types';
 
@@ -110,7 +111,7 @@ async function updatePipelineJob(jobId: string, patch: Partial<PipelineJob>, opt
   return updated;
 }
 
-export async function enqueuePipelineJob(tutorialId: string) {
+export async function enqueuePipelineJob(tutorialId: string, options: { ownerUserId?: string; creditReservationId?: string } = {}) {
   const runtime = getRuntimeStore();
   const jobs = await readJobs();
   const existing = jobs.find((job) => job.tutorialId === tutorialId && (job.status === 'queued' || job.status === 'running'));
@@ -130,6 +131,8 @@ export async function enqueuePipelineJob(tutorialId: string) {
   const now = nowIso();
   const job: PipelineJob = {
     id: simpleId('pipeline_job'),
+    ownerUserId: options.ownerUserId,
+    creditReservationId: options.creditReservationId,
     tutorialId,
     status: 'queued',
     stage: 'queued',
@@ -195,6 +198,7 @@ export async function cancelPipelineJob(jobId: string) {
   }
 
   if (current.status === 'queued') {
+    await refundReservation(current.creditReservationId, 'Queued script pipeline cancelled');
     const cancelled: PipelineJob = {
       ...current,
       status: 'cancelled',
@@ -264,6 +268,7 @@ export async function processPipelineQueue() {
     });
 
     const summary = summarizeResult(result);
+    await captureReservation(nextJob.creditReservationId, 'Script pipeline completed');
     await updatePipelineJob(nextJob.id, {
       status: 'completed',
       stage: 'completed',
@@ -278,6 +283,7 @@ export async function processPipelineQueue() {
     const message = error instanceof Error ? error.message : '教程处理失败';
     const controller = runtime.controllers.get(nextJob.id);
     if (controller?.signal.aborted || message === '用户已停止脚本生成') {
+      await refundReservation(nextJob.creditReservationId, 'Script pipeline cancelled');
       await updatePipelineJob(nextJob.id, {
         status: 'cancelled',
         stage: 'cancelled',
@@ -289,6 +295,7 @@ export async function processPipelineQueue() {
       return await getPipelineJob(nextJob.id);
     }
 
+    await refundReservation(nextJob.creditReservationId, 'Script pipeline failed');
     await updatePipelineJob(nextJob.id, {
       status: 'failed',
       stage: 'failed',

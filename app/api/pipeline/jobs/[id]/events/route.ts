@@ -1,4 +1,6 @@
+import { getCurrentUser } from '@/lib/auth';
 import { getPipelineJob, subscribePipelineJob } from '@/lib/pipeline-jobs';
+import { canAccessOwnedRecord } from '@/lib/ownership';
 
 export const dynamic = 'force-dynamic';
 
@@ -7,10 +9,23 @@ function isTerminal(status: string) {
 }
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
+    });
+  }
   const job = await getPipelineJob(params.id);
   if (!job) {
     return new Response(JSON.stringify({ error: 'Pipeline job not found' }), {
       status: 404,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
+    });
+  }
+  if (!canAccessOwnedRecord(user, job.ownerUserId)) {
+    return new Response(JSON.stringify({ error: 'Forbidden' }), {
+      status: 403,
       headers: { 'Content-Type': 'application/json; charset=utf-8' }
     });
   }

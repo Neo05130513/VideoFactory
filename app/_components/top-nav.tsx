@@ -9,7 +9,7 @@ const baseNav = {
   background: 'linear-gradient(180deg, rgba(15,23,42,0.9) 0%, rgba(6,10,18,0.96) 100%)'
 } as const;
 
-export type NavKey = 'home' | 'topics' | 'scripts' | 'videos' | 'trends' | 'probe' | 'handbook' | 'launch' | 'users' | 'audit';
+export type NavKey = 'home' | 'topics' | 'scripts' | 'videos' | 'trends' | 'probe' | 'handbook' | 'launch' | 'users' | 'audit' | 'pricing' | 'billing';
 
 const items: { key: NavKey; href: string; text: string }[] = [
   { key: 'home', href: '/', text: '首页' },
@@ -17,7 +17,9 @@ const items: { key: NavKey; href: string; text: string }[] = [
   { key: 'scripts', href: '/scripts', text: '脚本' },
   { key: 'videos', href: '/videos', text: '视频' },
   { key: 'users', href: '/users', text: '账号' },
+  { key: 'billing', href: '/admin/billing', text: '运营' },
   { key: 'audit', href: '/admin/audit', text: '审计' },
+  { key: 'pricing', href: '/pricing', text: '套餐' },
   { key: 'handbook', href: '/handbook', text: '手册' },
   { key: 'launch', href: '/launch-checklist', text: '上线检查' },
   { key: 'trends', href: '/trends', text: '热点' },

@@ -74,7 +74,7 @@ export async function clearUserLockIfExpired(userId: string) {
   return user;
 }
 
-export async function createUserAccount(input: { name: string; email: string; password: string; role: UserRole }) {
+export async function createUserAccount(input: { name: string; email: string; password: string; role: UserRole; mustChangePassword?: boolean }) {
   const users = await readUsers();
   const email = input.email.trim().toLowerCase();
   ensurePasswordPolicy(input.password);
@@ -93,7 +93,7 @@ export async function createUserAccount(input: { name: string; email: string; pa
     lastLoginAt: undefined,
     failedLoginAttempts: 0,
     lockedUntil: undefined,
-    mustChangePassword: true
+    mustChangePassword: input.mustChangePassword ?? true
   };
 
   await writeUsers([user, ...users]);

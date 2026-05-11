@@ -1,5 +1,73 @@
 [
   {
+    "id": "storyboard_review_1778512199711_bcthb6",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 72,
+    "issues": [
+      "AI storyboard planner disabled; used local storyboard builder."
+    ],
+    "reasons": [
+      "STORYBOARD_PLANNER_PROVIDER=local"
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 30,
+    "totalDurationSec": 261,
+    "createdAt": "2026-05-11T15:09:59.711Z"
+  },
+  {
+    "id": "storyboard_review_1778507593733_8lba8d",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 72,
+    "issues": [
+      "AI storyboard planner disabled; used local storyboard builder."
+    ],
+    "reasons": [
+      "STORYBOARD_PLANNER_PROVIDER=local"
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 30,
+    "totalDurationSec": 241.9,
+    "createdAt": "2026-05-11T13:53:13.733Z"
+  },
+  {
+    "id": "storyboard_review_1778507233017_fvujl6",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 64,
+    "issues": [
+      "AI storyboard planner failed; used local fallback."
+    ],
+    "reasons": [
+      "AI planner error: OpenAI text generation failed at /v1/responses: 504 <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n"
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 12,
+    "totalDurationSec": 95.9,
+    "createdAt": "2026-05-11T13:47:13.017Z"
+  },
+  {
+    "id": "storyboard_review_1778492032537_uf2qto",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 64,
+    "issues": [
+      "AI storyboard planner failed; used local fallback."
+    ],
+    "reasons": [
+      "AI planner error: OpenAI text generation failed at /v1/responses: 504 <html>\r\n<head><title>504 Gateway Time-out</title></head>\r\n<body>\r\n<center><h1>504 Gateway Time-out</h1></center>\r\n<hr><center>nginx</center>\r\n</body>\r\n</html>\r\n"
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 25,
+    "totalDurationSec": 212.5,
+    "createdAt": "2026-05-11T09:33:52.537Z"
+  },
+  {
     "id": "storyboard_review_1778431496900_hmnu1e",
     "projectId": "video_project_1778431308725_5j08g5",
     "source": "rule-fallback",

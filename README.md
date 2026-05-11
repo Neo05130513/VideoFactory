@@ -42,3 +42,4 @@ Video Factory project.
 ## Roadmap
 
 - Remotion implementation plan: [docs/remotion-roadmap.md](docs/remotion-roadmap.md)
+- Monetization and credit plans: [docs/monetization-and-credits.md](docs/monetization-and-credits.md)

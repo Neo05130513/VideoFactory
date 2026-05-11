@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { parseTutorial } from '@/lib/parser';
 import { requireApiRole } from '@/lib/api-auth';
 import { appendAuditLog } from '@/lib/audit';
+import { assertCanAccessOwnedRecord } from '@/lib/ownership';
 import { readJsonFile, writeJsonFile } from '@/lib/storage';
 import { Tutorial } from '@/lib/types';
 
@@ -14,6 +15,15 @@ export async function POST(_: Request, { params }: { params: { id: string } }) {
 
   if (tutorialIndex === -1) {
     return NextResponse.json({ error: 'Tutorial not found' }, { status: 404 });
+  }
+
+  try {
+    assertCanAccessOwnedRecord(auth.user, tutorials[tutorialIndex].ownerUserId, 'tutorial');
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Forbidden tutorial' },
+      { status: 403 }
+    );
   }
 
   const parsed = parseTutorial(tutorials[tutorialIndex]);

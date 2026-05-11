@@ -632,6 +632,11 @@ function buildDirectorPrompt(topic: Topic, tutorial: Tutorial, evidence: string[
     'network: 关系图、信息流、依赖关系',
     'cause: 原因、机制、因果结构',
     'pyramid: 分层结构、结论到依据',
+    'spotlight: 核心概念、主张、关键判断聚焦',
+    'quote: 案例、品牌、人名、原文引语、代表性例子',
+    'toolchain: 多工具分工、工具链路、角色协作',
+    'radar: 标准、指标、风险、成熟度、判断条件',
+    'mosaic: 多个并列点、信息密集卡片、非线性要点',
     'chart: 只有原文确实出现数据、趋势、比例时才使用',
     'cta: 只用于结尾行动引导'
   ]);
@@ -644,6 +649,11 @@ function buildDirectorPrompt(topic: Topic, tutorial: Tutorial, evidence: string[
     '关系连线',
     '时间线推进',
     '清单勾选',
+    '中心聚焦',
+    '工具泳道',
+    '雷达评分',
+    '案例引语',
+    '拼贴卡组',
     '风险警示闪现',
     '结果状态变化'
   ];

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { appendAuditLog } from '@/lib/audit';
 import { requireApiRole } from '@/lib/api-auth';
+import { captureReservation, refundReservation, reserveCredits } from '@/lib/credits';
+import { creditErrorStatus } from '@/lib/render-credit';
 import { ensureVoiceProfileReady } from '@/lib/voice-provider';
 import { getVoiceProfileById, saveUploadedVoiceSample } from '@/lib/voice-profiles';
 
@@ -32,8 +34,17 @@ export async function POST(request: Request) {
       summary: `上传声音样本：${profile.name}`
     });
 
+    const reservation = await reserveCredits({
+      user: auth.user,
+      amount: 80,
+      relatedType: 'voice',
+      relatedId: profile.id,
+      note: `声音复刻：${profile.name}`
+    });
+
     try {
       const readyProfile = await ensureVoiceProfileReady(profile);
+      await captureReservation(reservation.reservationId, '声音复刻完成');
       await appendAuditLog({
         actor: auth.user,
         action: 'voice.clone.ready',
@@ -43,6 +54,7 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ ok: true, profile: readyProfile });
     } catch (cloneError) {
+      await refundReservation(reservation.reservationId, '声音复刻失败');
       const latestProfile = await getVoiceProfileById(profile.id);
       await appendAuditLog({
         actor: auth.user,
@@ -62,7 +74,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Voice sample upload failed' },
-      { status: 500 }
+      { status: creditErrorStatus(error) }
     );
   }
 }

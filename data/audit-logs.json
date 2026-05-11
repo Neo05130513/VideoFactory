@@ -1,5 +1,82 @@
 [
   {
+    "id": "audit_1778494029183_kh1hwl",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.render.retry",
+    "targetType": "video_project",
+    "targetId": "video_project_1778431308725_5j08g5",
+    "summary": "重试渲染任务：video_project_1778431308725_5j08g5",
+    "createdAt": "2026-05-11T10:07:09.183Z"
+  },
+  {
+    "id": "audit_1778493407334_cp2orb",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.render.retry",
+    "targetType": "video_project",
+    "targetId": "video_project_1778431308725_5j08g5",
+    "summary": "重试渲染任务：video_project_1778431308725_5j08g5",
+    "createdAt": "2026-05-11T09:56:47.334Z"
+  },
+  {
+    "id": "audit_1778492610364_0tfqxi",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.render.retry",
+    "targetType": "video_project",
+    "targetId": "video_project_1778431308725_5j08g5",
+    "summary": "重试渲染任务：video_project_1778431308725_5j08g5",
+    "createdAt": "2026-05-11T09:43:30.364Z"
+  },
+  {
+    "id": "audit_1778492067576_8502i8",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.render.retry",
+    "targetType": "video_project",
+    "targetId": "video_project_1778431308725_5j08g5",
+    "summary": "重试渲染任务：video_project_1778431308725_5j08g5",
+    "createdAt": "2026-05-11T09:34:27.576Z"
+  },
+  {
+    "id": "audit_1778492032547_7q4022",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.rebuild_from_script",
+    "targetType": "video_project",
+    "targetId": "video_project_1778431308725_5j08g5",
+    "summary": "按脚本版本重建项目：3种模式，让IP传递你的品牌理念",
+    "createdAt": "2026-05-11T09:33:52.547Z"
+  },
+  {
+    "id": "audit_1778491113789_g6lbwq",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.render.retry",
+    "targetType": "video_project",
+    "targetId": "video_project_1778431308725_5j08g5",
+    "summary": "重试渲染任务：video_project_1778431308725_5j08g5",
+    "createdAt": "2026-05-11T09:18:33.789Z"
+  },
+  {
+    "id": "audit_1778490494117_iipkyo",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.render.retry",
+    "targetType": "video_project",
+    "targetId": "video_project_1778431308725_5j08g5",
+    "summary": "重试渲染任务：video_project_1778431308725_5j08g5",
+    "createdAt": "2026-05-11T09:08:14.117Z"
+  },
+  {
     "id": "audit_1778432675447_7ndywj",
     "actorId": "user_admin_demo",
     "actorName": "Admin Demo",

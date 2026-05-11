@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { UserAccount, UserRole, UserSession } from '@/lib/types';
 
-const roles: UserRole[] = ['admin', 'content', 'video', 'ops'];
+const roles: UserRole[] = ['admin', 'content', 'video', 'ops', 'creator'];
 type StatusFilter = 'all' | 'active' | 'disabled' | 'locked';
 
 export function UserAdminPanel({ initialUsers, initialSessions }: { initialUsers: UserAccount[]; initialSessions: UserSession[] }) {

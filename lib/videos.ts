@@ -9,6 +9,7 @@ import { commandExists, getExecutablePath } from './runtime/commands';
 import { generatedRelativePath, publicPathFromRelative, resolveAppPath } from './runtime/paths';
 import { buildScriptShotBreakdown } from './script-shots';
 import { planStoryboardWithAI } from './storyboard-planner';
+import { refundReservation } from './credits';
 import { Script, StoryboardReview, Topic, Tutorial, VideoAspectRatio, VideoAsset, VideoOpsStatus, VideoProject, VideoPublishTier, VideoScene, VideoShotType, VideoTemplate, VideoVisualPreset, VideoVisualType } from './types';
 
 function formatErrorMessage(error: unknown) {
@@ -224,10 +225,14 @@ function buildHeadline(text: string, fallback: string, maxLength = 16) {
 
 function buildSceneCards(text: string, layout: VideoScene['layout'], fallbackTerms: string[] = []) {
   const explicitItems = extractExplicitItems(text);
-  const cards = explicitItems.length ? explicitItems : sceneCards(text, layout === 'timeline' || layout === 'process' ? 5 : 4);
+  const cardCount = layout === 'mosaic'
+    ? 6
+    : layout === 'timeline' || layout === 'process' || layout === 'toolchain' || layout === 'checklist'
+      ? 5
+      : 4;
+  const cards = explicitItems.length ? explicitItems : sceneCards(text, cardCount);
   const fallbackCards = fallbackTerms.map((item) => compactVisualLabel(item, 12)).filter(isUsefulVisualTerm);
-  const maxItems = layout === 'process' || layout === 'timeline' || layout === 'checklist' ? 5 : 4;
-  return Array.from(new Set([...cards, ...fallbackCards])).slice(0, maxItems);
+  return Array.from(new Set([...cards, ...fallbackCards])).slice(0, cardCount);
 }
 
 function buildRichVisualPrompt(title: string, cards: string[], text: string) {
@@ -241,14 +246,21 @@ function inferSemanticLayout(text: string, shotType: VideoShotType, order: numbe
   if (shotType === 'cta') return 'cta' as const;
   if (shotType === 'pain') {
     if (/误区|不要|别再|常见错误|陷阱/.test(normalized)) return 'mistake' as const;
+    if (/标准|指标|评分|评估|风险|成熟度|判断|质量|边界/.test(normalized)) return 'radar' as const;
     if (/原因|为什么|根源|导致|因为/.test(normalized)) return 'cause' as const;
     return 'contrast' as const;
   }
   if (shotType === 'result') {
+    if (/标准|指标|评分|评估|成熟度|判断|质量|风险|通过率/.test(normalized)) return 'radar' as const;
     if (/数据|提升|增长|效率|比例|趋势|曲线/.test(normalized)) return 'chart' as const;
     if (/清单|检查|完成|具备|满足|准备好/.test(normalized)) return 'checklist' as const;
     return 'matrix' as const;
   }
+  if (/工具|豆包|千问|即梦|Lovart|OiiOii|剪映|海螺|可灵|分工|工具链|链路|协作流|工作流/.test(normalized)) return 'toolchain' as const;
+  if (/案例|例子|品牌|人物|客户|故事|原文|引用|“|”|「|」|叫作|名叫/.test(normalized)) return 'quote' as const;
+  if (/标准|指标|评分|评估|风险|成熟度|判断|检查标准|质量|边界|门槛/.test(normalized)) return 'radar' as const;
+  if (/核心|关键|主张|概念|价值|定位|本质|结论|一句话/.test(normalized)) return 'spotlight' as const;
+  if (/多个|几类|几种|并列|分类|标签|要点|模块|元素|集合|组合/.test(normalized)) return 'mosaic' as const;
   if (/时间线|阶段|先.*再|然后|最后|三步|四步|顺序/.test(normalized)) return 'timeline' as const;
   if (/关系|协同|联动|节点|网络|链路|连接/.test(normalized)) return 'network' as const;
   if (/层级|优先级|金字塔|底层|顶层/.test(normalized)) return 'pyramid' as const;
@@ -265,14 +277,14 @@ function chooseAiLayout(shotType: VideoShotType, order: number) {
   if (shotType === 'title') return 'hero' as const;
   if (shotType === 'cta') return 'cta' as const;
   if (shotType === 'pain') {
-    const variants = ['contrast', 'cause', 'mistake'] as const;
+    const variants = ['contrast', 'cause', 'mistake', 'radar'] as const;
     return variants[(order - 1) % variants.length];
   }
   if (shotType === 'result') {
-    const variants = ['chart', 'matrix', 'checklist'] as const;
+    const variants = ['chart', 'radar', 'matrix', 'checklist', 'spotlight'] as const;
     return variants[(order - 1) % variants.length];
   }
-  const variants = ['timeline', 'network', 'matrix', 'checklist', 'pyramid', 'process'] as const;
+  const variants = ['timeline', 'toolchain', 'spotlight', 'network', 'mosaic', 'matrix', 'checklist', 'pyramid', 'quote', 'process'] as const;
   return variants[(order - 1) % variants.length];
 }
 
@@ -307,21 +319,23 @@ function aiSceneMetadata(params: {
       ? [38, 58, 78, 88, 94]
       : /宣传|混乱|消耗|承接/.test(cleanedText)
         ? [72, 62, 48, 34]
-        : params.shotType === 'result'
-          ? [26, 44, 58, 76, 91]
-          : params.shotType === 'step' && (layout === 'matrix' || layout === 'network' || layout === 'pyramid')
-            ? [24, 42, 60, 78]
+        : layout === 'radar'
+          ? [46, 62, 78, 70, 88]
+          : params.shotType === 'result'
+            ? [26, 44, 58, 76, 91]
+            : params.shotType === 'step' && (layout === 'matrix' || layout === 'network' || layout === 'pyramid' || layout === 'mosaic')
+              ? [24, 42, 60, 78]
             : undefined;
   const transition =
     params.shotType === 'title'
       ? 'zoom'
       : params.shotType === 'cta'
         ? 'fade'
-        : layout === 'timeline'
+        : layout === 'timeline' || layout === 'toolchain'
           ? 'push'
-          : layout === 'network'
+          : layout === 'network' || layout === 'spotlight'
             ? 'zoom'
-            : layout === 'mistake'
+            : layout === 'mistake' || layout === 'radar'
             ? 'flash'
             : 'wipe';
 
@@ -937,12 +951,56 @@ function ensureScriptTopicTutorialByScript(state: Awaited<ReturnType<typeof read
   return { script, topic, tutorial };
 }
 
+function longformChapterBucket(sceneIndex: number, sceneCount: number, shotType: VideoShotType) {
+  if (shotType === 'title') return 0;
+  if (shotType === 'cta') return 5;
+  const ratio = sceneIndex / Math.max(1, sceneCount);
+  if (ratio < 0.22) return 1;
+  if (ratio < 0.44) return 2;
+  if (ratio < 0.68) return 3;
+  if (ratio < 0.88) return 4;
+  return 5;
+}
+
+function rebalanceLongformStoryboardDurations(scenes: VideoScene[]) {
+  if (scenes.length < 16) return scenes;
+
+  return scenes.map((scene, index) => {
+    if (scene.shotType === 'title' || scene.shotType === 'cta') return scene;
+
+    const cardCount = scene.cards?.length || 0;
+    const keywordCount = scene.keywords?.length || 0;
+    const contentDensity = Math.max(cardCount, keywordCount);
+    const previous = scenes[index - 1];
+    const chapterBoundary = index > 0 && previous
+      ? longformChapterBucket(index + 1, scenes.length, scene.shotType) !== longformChapterBucket(index, scenes.length, previous.shotType)
+      : false;
+
+    let minDurationSec = 8.2;
+    if (contentDensity >= 5 || scene.voiceover.length >= 55) minDurationSec = 8.8;
+    else if (contentDensity >= 4 || scene.voiceover.length >= 44) minDurationSec = 8.5;
+
+    if (scene.layout === 'quote' || scene.layout === 'spotlight' || scene.layout === 'mosaic') {
+      minDurationSec = Math.max(minDurationSec, 8.5);
+    }
+    if (chapterBoundary) {
+      minDurationSec = Math.max(minDurationSec, 9.1);
+    }
+
+    if (scene.durationSec >= minDurationSec) return scene;
+    return {
+      ...scene,
+      durationSec: Number(minDurationSec.toFixed(1))
+    };
+  });
+}
+
 export function buildStoryboard(project: VideoProject, script: Script, topic: Topic, tutorial: Tutorial): VideoScene[] {
   const scriptShots = buildScriptShotBreakdown(script, tutorial);
   const useTechTemplate = project.template === 'tech-explainer-v1';
   const useRichMotionTemplate = project.template === 'ai-explainer-short-v1' || project.template === 'hyperframes-explainer-v1';
 
-  return scriptShots.map((shot) => {
+  const scenes = scriptShots.map((shot) => {
     const shotType = shot.shotType;
     const aiMeta = useRichMotionTemplate
       ? aiSceneMetadata({ shotType, order: shot.order, title: shot.title, text: shot.voiceover, topic, tutorial, script })
@@ -967,6 +1025,8 @@ export function buildStoryboard(project: VideoProject, script: Script, topic: To
       transition: aiMeta?.transition
     });
   });
+
+  return rebalanceLongformStoryboardDurations(scenes);
 }
 
 const LOCAL_STORYBOARD_PROVIDER_VALUES = new Set(['local', 'rule', 'rules', 'fallback', 'none', 'off', 'false', 'disabled']);
@@ -1125,6 +1185,7 @@ export async function createVideoProjectFromScriptWithOptions(scriptId: string, 
   const timestamp = nowIso();
   const project: VideoProject = {
     id: simpleId('video_project'),
+    ownerUserId: script.ownerUserId || topic.ownerUserId || tutorial.ownerUserId,
     tutorialId: tutorial.id,
     topicId: topic.id,
     scriptId: script.id,
@@ -1243,6 +1304,9 @@ export async function deleteVideoProject(projectId: string) {
     readJsonFile<import('./types').StoryboardReview[]>('data/storyboard-reviews.json').catch(() => []),
     readJsonFile<import('./types').QualityReview[]>('data/quality-reviews.json').catch(() => [])
   ]);
+  await Promise.all(renderJobs
+    .filter((job) => job.projectId === projectId && (job.status === 'queued' || job.status === 'running'))
+    .map((job) => refundReservation(job.creditReservationId, 'Video project deleted').catch(() => undefined)));
 
   await Promise.all([
     writeJsonFile('data/video-projects.json', state.projects.filter((item) => item.id !== projectId)),

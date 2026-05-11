@@ -12,7 +12,8 @@ export async function requireApiRole(roles: UserRole[]) {
     return { ok: false as const, response: NextResponse.json({ error: 'Password change required' }, { status: 403 }) };
   }
 
-  if (user.role !== 'admin' && !roles.includes(user.role)) {
+  const creatorAllowed = user.role === 'creator' && (roles.includes('content') || roles.includes('video') || roles.includes('creator'));
+  if (user.role !== 'admin' && !roles.includes(user.role) && !creatorAllowed) {
     return { ok: false as const, response: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
   }
 

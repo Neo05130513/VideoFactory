@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server';
 import { requireApiRole } from '@/lib/api-auth';
 import { appendAuditLog } from '@/lib/audit';
+import { assertCanAccessOwnedRecord } from '@/lib/ownership';
 import { deleteScriptsByIds } from '@/lib/script-ops';
+import { readJsonFile } from '@/lib/storage';
+import type { Script } from '@/lib/types';
 
 export async function POST(request: Request) {
   const auth = await requireApiRole(['content']);
@@ -12,6 +15,16 @@ export async function POST(request: Request) {
     const scriptIds = Array.isArray(body.scriptIds) ? body.scriptIds.map((item: unknown) => String(item || '').trim()).filter(Boolean) : [];
     if (!scriptIds.length) {
       return NextResponse.json({ error: 'scriptIds is required' }, { status: 400 });
+    }
+
+    const scripts = await readJsonFile<Script[]>('data/scripts.json');
+    const scriptById = new Map(scripts.map((script) => [script.id, script]));
+    for (const scriptId of scriptIds) {
+      const script = scriptById.get(scriptId);
+      if (!script) {
+        return NextResponse.json({ error: `Script not found: ${scriptId}` }, { status: 404 });
+      }
+      assertCanAccessOwnedRecord(auth.user, script.ownerUserId, 'script');
     }
 
     const deletedScripts = await deleteScriptsByIds(scriptIds);
@@ -29,7 +42,7 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to delete scripts';
-    const status = /不能删除|required|not found/i.test(message) ? 400 : 500;
+    const status = /^Forbidden/i.test(message) ? 403 : /not found/i.test(message) ? 404 : /不能删除|required/i.test(message) ? 400 : 500;
     return NextResponse.json({ error: message }, { status });
   }
 }

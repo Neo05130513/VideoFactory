@@ -4,7 +4,7 @@ import { appendAuditLog } from '@/lib/audit';
 import { updateUserRole } from '@/lib/users';
 import type { UserRole } from '@/lib/types';
 
-const allowedRoles: UserRole[] = ['admin', 'content', 'video', 'ops'];
+const allowedRoles: UserRole[] = ['admin', 'content', 'video', 'ops', 'creator'];
 
 export async function POST(request: Request) {
   const auth = await requireApiRole(['admin']);

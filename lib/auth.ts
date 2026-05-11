@@ -116,7 +116,8 @@ export async function requireRole(roles: UserRole[]) {
   if (user.mustChangePassword) {
     redirect('/change-password');
   }
-  if (!roles.includes(user.role) && user.role !== 'admin') {
+  const creatorAllowed = user.role === 'creator' && (roles.includes('content') || roles.includes('video') || roles.includes('creator'));
+  if (!roles.includes(user.role) && user.role !== 'admin' && !creatorAllowed) {
     redirect('/');
   }
   return user;
@@ -131,11 +132,11 @@ export async function requireNoForcedPasswordChange() {
 }
 
 export function canManageContent(role: UserRole) {
-  return role === 'admin' || role === 'content';
+  return role === 'admin' || role === 'content' || role === 'creator';
 }
 
 export function canManageVideo(role: UserRole) {
-  return role === 'admin' || role === 'video';
+  return role === 'admin' || role === 'video' || role === 'creator';
 }
 
 export function canManageOps(role: UserRole) {

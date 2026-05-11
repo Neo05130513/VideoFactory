@@ -14,6 +14,9 @@ export async function GET() {
 export async function PUT(request: Request) {
   const auth = await requireApiRole(['video']);
   if (!auth.ok) return auth.response;
+  if (auth.user.role === 'creator') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   try {
     const body = await request.json();

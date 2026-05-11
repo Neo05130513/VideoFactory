@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getAudioDurationSec } from '@/lib/audio-metadata';
 import { requireApiRole } from '@/lib/api-auth';
+import { captureReservation, refundReservation, reserveCredits } from '@/lib/credits';
+import { creditErrorStatus } from '@/lib/render-credit';
 import { synthesizeLongSpeechWithCosyVoice } from '@/lib/providers/cosyvoice';
 import { synthesizeConfiguredSpeechWithMiniMax } from '@/lib/providers/minimax';
 import { generatedRelativePath, resolveAppPath } from '@/lib/runtime/paths';
@@ -24,22 +26,37 @@ export async function POST(request: Request) {
         : 'female-tianmei';
     const outputExtension = settings.provider === 'aliyun-cosyvoice' ? 'wav' : 'mp3';
     const outputRelativePath = generatedRelativePath('remotion', 'tts-api-test', `${simpleId('tts')}.${outputExtension}`);
+    const reservation = await reserveCredits({
+      user: auth.user,
+      amount: 5,
+      relatedType: 'voice',
+      relatedId: outputRelativePath,
+      note: 'TTS 试听'
+    });
 
-    const result = settings.provider === 'aliyun-cosyvoice'
-      ? await synthesizeLongSpeechWithCosyVoice({
-        text,
-        outputRelativePath,
-        voiceId,
-        settings
-      })
-      : await synthesizeConfiguredSpeechWithMiniMax({
-        text,
-        outputRelativePath,
-        voiceId,
-        settings,
-        format: 'mp3'
-      });
-    const durationSec = await getAudioDurationSec(resolveAppPath(result.relativePath));
+    let result;
+    let durationSec;
+    try {
+      result = settings.provider === 'aliyun-cosyvoice'
+        ? await synthesizeLongSpeechWithCosyVoice({
+          text,
+          outputRelativePath,
+          voiceId,
+          settings
+        })
+        : await synthesizeConfiguredSpeechWithMiniMax({
+          text,
+          outputRelativePath,
+          voiceId,
+          settings,
+          format: 'mp3'
+        });
+      durationSec = await getAudioDurationSec(resolveAppPath(result.relativePath));
+      await captureReservation(reservation.reservationId, 'TTS 试听完成');
+    } catch (error) {
+      await refundReservation(reservation.reservationId, 'TTS 试听失败');
+      throw error;
+    }
 
     return NextResponse.json({
       ok: true,
@@ -53,7 +70,7 @@ export async function POST(request: Request) {
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'TTS test failed' },
-      { status: 500 }
+      { status: creditErrorStatus(error) }
     );
   }
 }

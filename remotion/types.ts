@@ -9,7 +9,7 @@ export interface RemotionSceneInput {
   durationSec: number;
   audioPath?: string;
   audioDurationSec?: number;
-  layout?: 'hero' | 'contrast' | 'network' | 'process' | 'chart' | 'matrix' | 'checklist' | 'cta' | 'cause' | 'timeline' | 'mistake' | 'pyramid';
+  layout?: 'hero' | 'contrast' | 'network' | 'process' | 'chart' | 'matrix' | 'checklist' | 'cta' | 'cause' | 'timeline' | 'mistake' | 'pyramid' | 'spotlight' | 'quote' | 'toolchain' | 'radar' | 'mosaic';
   headline?: string;
   emphasis?: string;
   keywords?: string[];
