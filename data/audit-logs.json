@@ -1,5 +1,82 @@
 [
   {
+    "id": "audit_1778432675447_7ndywj",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.render.retry",
+    "targetType": "video_project",
+    "targetId": "video_project_1778431308725_5j08g5",
+    "summary": "重试渲染任务：video_project_1778431308725_5j08g5",
+    "createdAt": "2026-05-10T17:04:35.447Z"
+  },
+  {
+    "id": "audit_1778432496641_tv6sru",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.render.enqueue",
+    "targetType": "video_project",
+    "targetId": "video_project_1778431308725_5j08g5",
+    "summary": "提交渲染任务：video_project_1778431308725_5j08g5",
+    "createdAt": "2026-05-10T17:01:36.641Z"
+  },
+  {
+    "id": "audit_1778431496911_1iem6a",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.create",
+    "targetType": "video_project",
+    "targetId": "video_project_1778431308725_5j08g5",
+    "summary": "从脚本创建视频项目：3种模式，让IP传递你的品牌理念",
+    "createdAt": "2026-05-10T16:44:56.911Z"
+  },
+  {
+    "id": "audit_1778430277572_9z6qlv",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "voice.profile.default",
+    "targetType": "system",
+    "targetId": "voice_profile_1776852032356_c01r5d",
+    "summary": "设置默认音色：Neo音色",
+    "createdAt": "2026-05-10T16:24:37.572Z"
+  },
+  {
+    "id": "audit_1778428884324_j9eajj",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "tutorial.import.upload",
+    "targetType": "tutorial",
+    "targetId": "tutorial_1778428884317_k0e0lf",
+    "summary": "上传导入文档：粘贴文本",
+    "createdAt": "2026-05-10T16:01:24.324Z"
+  },
+  {
+    "id": "audit_1778428881027_nay95r",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "voice.profile.default",
+    "targetType": "system",
+    "targetId": "voice_profile_1776852032356_c01r5d",
+    "summary": "设置默认音色：Neo音色",
+    "createdAt": "2026-05-10T16:01:21.027Z"
+  },
+  {
+    "id": "audit_1778428752757_zrcx1j",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "auth.login.success",
+    "targetType": "system",
+    "targetId": "user_admin_demo",
+    "summary": "登录成功：admin@videofactory.local",
+    "createdAt": "2026-05-10T15:59:12.757Z"
+  },
+  {
     "id": "audit_1778288697192_99rt97",
     "actorId": "user_admin_demo",
     "actorName": "Admin Demo",

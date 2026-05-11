@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireApiRole } from '@/lib/api-auth';
 import { appendAuditLog } from '@/lib/audit';
+import { enqueueRenderJob } from '@/lib/render-jobs';
 import { createVideoProjectFromScript } from '@/lib/videos';
 import type { VideoAspectRatio, VideoTemplate } from '@/lib/types';
 
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
     }
 
     const result = await createVideoProjectFromScript(scriptId, { aspectRatio, template });
+    const job = await enqueueRenderJob(result.project.id);
     await appendAuditLog({
       actor: auth.user,
       action: 'video_project.create',
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
       targetId: result.project.id,
       summary: `从脚本创建视频项目：${result.project.title}`
     });
-    return NextResponse.json(result);
+    return NextResponse.json({ ...result, job });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to create video project' },

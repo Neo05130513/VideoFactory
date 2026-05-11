@@ -136,21 +136,44 @@ function cleanVisualLabel(text: string, maxChars = 12) {
   return value.length <= maxChars ? value : `${value.slice(0, maxChars - 1)}…`;
 }
 
+function cleanDisplayLabel(text: string, maxChars = 12) {
+  const value = compactText(text)
+    .replace(/^content-hash:.*/i, '')
+    .replace(/[“”"']/g, '')
+    .replace(/^(这里|这类内容|很多品牌|很多|如果|因为|所以|但是|而是|同时|另外|其实|问题是|需要|可以|就是|它可以|它要|它会)/, '')
+    .replace(/^(第一|第二|第三|第四|第五|第六)[步点：:、\s]*/, '')
+    .replace(/^(一是|二是|三是|四是|五是|六是)[：:、\s]*/, '')
+    .replace(/^(把|让|用|通过|完成|实现)/, '')
+    .replace(/更生动地/g, '生动')
+    .replace(/品牌宣传视频/g, '品牌片')
+    .replace(/品牌理念/g, '理念')
+    .trim();
+  if (!value || /^(AI|IP|业务|内容|方式|表达|问题)$/.test(value)) return '';
+  const parts = value.split(/[，、。！？；;:：]/).map((item) => item.trim()).filter(Boolean);
+  const bestPart = parts.find((item) => item.length >= 2 && item.length <= maxChars) || parts[0] || value;
+  return bestPart.length <= maxChars ? bestPart : bestPart.slice(0, maxChars);
+}
+
 function sceneItems(scene: RemotionSceneInput, count = 5) {
   const primaryValues = [
     ...(scene.cards || []),
     scene.emphasis || '',
     scene.headline || '',
     ...(scene.keywords || [])
-  ].map((item) => cleanVisualLabel(item, 14)).filter((item) => item.length >= 2);
+  ].map((item) => cleanDisplayLabel(item, 14)).filter((item) => item.length >= 2);
   const unique = Array.from(new Set(primaryValues));
   if (unique.length) return unique.slice(0, count);
 
   const fallbackValues = splitLines(scene.subtitle || scene.visualPrompt || '', 12, count)
-    .map((item) => cleanVisualLabel(item, 12))
+    .map((item) => cleanDisplayLabel(item, 12))
     .filter((item) => item.length >= 2);
   if (fallbackValues.length) return Array.from(new Set(fallbackValues)).slice(0, count);
   return ['输入资料', '结构拆解', '视觉表达', '节奏控制', '成片输出'].slice(0, count);
+}
+
+function displaySummary(scene: RemotionSceneInput) {
+  const cards = sceneItems(scene, 3);
+  return scene.subtitle || cards.join(' / ') || scene.emphasis || scene.headline || '';
 }
 
 function chartValues(scene: RemotionSceneInput, count = 5) {
@@ -232,7 +255,7 @@ function HeroFrame({ scene, palette, enter, progress }: { scene: RemotionSceneIn
           <div style={{ marginTop: 22, color: palette.text, fontSize: layout.headlineSize, lineHeight: 1.02, fontWeight: 980 }}>
             {lines.map((line, index) => <div key={`${line}-${index}`}>{line}</div>)}
           </div>
-          <div style={{ marginTop: 26, color: palette.muted, fontSize: layout.bodySize, lineHeight: 1.42 }}>{splitLines(scene.visualPrompt || scene.voiceover, layout.isWide ? 26 : 18, 3).join(' ')}</div>
+          <div style={{ marginTop: 26, color: palette.muted, fontSize: layout.bodySize, lineHeight: 1.42 }}>{splitLines(displaySummary(scene), layout.isWide ? 22 : 16, 2).join(' / ')}</div>
         </div>
         <div style={{ position: 'absolute', right: layout.isWide ? 54 : 42, bottom: layout.isWide ? 54 : 62, width: layout.isWide ? 540 : 420, display: 'grid', gap: 18 }}>
           {cards.map((card, index) => {

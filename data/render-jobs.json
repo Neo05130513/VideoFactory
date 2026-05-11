@@ -1,5 +1,33 @@
 [
   {
+    "id": "render_job_1778432675431_3dvy74",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "status": "completed",
+    "attempt": 1,
+    "maxAttempts": 2,
+    "createdAt": "2026-05-10T17:04:35.431Z",
+    "updatedAt": "2026-05-10T17:33:24.817Z",
+    "startedAt": "2026-05-10T17:04:35.964Z",
+    "completedAt": "2026-05-10T17:33:24.817Z",
+    "outputPath": "/generated/remotion/video_project_1778431308725_5j08g5/output.mp4",
+    "stage": "completed",
+    "progress": 100
+  },
+  {
+    "id": "render_job_1778432496630_gtfn6l",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "status": "failed",
+    "attempt": 2,
+    "maxAttempts": 2,
+    "createdAt": "2026-05-10T17:01:36.630Z",
+    "updatedAt": "2026-05-10T17:01:37.263Z",
+    "startedAt": "2026-05-10T17:01:37.221Z",
+    "completedAt": "2026-05-10T17:01:37.263Z",
+    "error": "DASHSCOPE_API_KEY is required for CosyVoice",
+    "stage": "failed",
+    "progress": 100
+  },
+  {
     "id": "render_job_1778259266361_e7jr3k",
     "projectId": "video_project_1778258874134_s0pu4w",
     "status": "completed",

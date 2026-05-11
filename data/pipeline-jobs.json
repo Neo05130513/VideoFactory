@@ -1,5 +1,47 @@
 [
   {
+    "id": "pipeline_job_1778430280871_j2jf25",
+    "tutorialId": "tutorial_1778428884317_k0e0lf",
+    "status": "completed",
+    "stage": "completed",
+    "progress": 100,
+    "detail": "已完成，生成 1 条脚本。",
+    "createdAt": "2026-05-10T16:24:40.871Z",
+    "updatedAt": "2026-05-10T16:25:44.424Z",
+    "startedAt": "2026-05-10T16:24:40.876Z",
+    "previewText": "3种模式，让IP传递你的品牌理念｜品牌理念常只有几个抽象词：以客户为中心、品质至上、创新驱动。问题是，用户很难从这些词里看见一家公司的灵魂",
+    "totalTopics": 1,
+    "result": {
+      "tutorialId": "tutorial_1778428884317_k0e0lf",
+      "tutorialTitle": "3种模式，让IP传递你的品牌理念",
+      "topicCount": 1,
+      "scriptCount": 1,
+      "scripts": [
+        {
+          "id": "script_1778430344400_8679vi",
+          "title": "3种模式，让IP传递你的品牌理念",
+          "hook": "品牌理念常只有几个抽象词：以客户为中心、品质至上、创新驱动。问题是，用户很难从这些词里看见一家公司的灵魂"
+        }
+      ],
+      "firstScriptId": "script_1778430344400_8679vi",
+      "firstScriptTitle": "3种模式，让IP传递你的品牌理念"
+    },
+    "completedAt": "2026-05-10T16:25:44.424Z"
+  },
+  {
+    "id": "pipeline_job_1778428884867_rl025k",
+    "tutorialId": "tutorial_1778428884317_k0e0lf",
+    "status": "failed",
+    "stage": "failed",
+    "progress": 100,
+    "detail": "AI 选题生成失败：未配置 OPENAI_API_KEY，已停止选题生成。",
+    "createdAt": "2026-05-10T16:01:24.867Z",
+    "updatedAt": "2026-05-10T16:01:24.886Z",
+    "startedAt": "2026-05-10T16:01:24.872Z",
+    "error": "AI 选题生成失败：未配置 OPENAI_API_KEY，已停止选题生成。",
+    "completedAt": "2026-05-10T16:01:24.886Z"
+  },
+  {
     "id": "pipeline_job_1778288552783_qx8n8s",
     "tutorialId": "tutorial_1778288552477_b0t1gm",
     "status": "completed",

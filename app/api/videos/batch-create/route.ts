@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireApiRole } from '@/lib/api-auth';
 import { appendAuditLog } from '@/lib/audit';
+import { enqueueRenderJobs } from '@/lib/render-jobs';
 import { createVideoProjectsBatch } from '@/lib/videos';
 import type { VideoAspectRatio, VideoTemplate } from '@/lib/types';
 
@@ -21,6 +22,7 @@ export async function POST(request: Request) {
     }
 
     const results = await createVideoProjectsBatch(scriptIds, { aspectRatio, template });
+    const jobs = await enqueueRenderJobs(results.map((item) => item.project.id));
     await Promise.all(results.map((item) => appendAuditLog({
       actor: auth.user,
       action: 'video_project.batch_create',
@@ -28,7 +30,7 @@ export async function POST(request: Request) {
       targetId: item.project.id,
       summary: `批量创建视频项目：${item.project.title}`
     })));
-    return NextResponse.json({ results });
+    return NextResponse.json({ results, jobs });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to batch create video projects' },

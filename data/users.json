@@ -6,7 +6,7 @@
     "passwordHash": "scrypt:ae84d6b63eb95002b3d2e56b701a3e8a:c9ffc7ad544108bf4bcc19c88cf8915b0d3ef86b9bfe5cefab4f4c7347e158ae591395bd24e272748d80204f7da9ffe82ba1a863cd84e0f0fbc32d784c6c6b0c",
     "role": "admin",
     "createdAt": "2026-04-10T00:00:00.000Z",
-    "lastLoginAt": "2026-05-08T12:40:06.243Z",
+    "lastLoginAt": "2026-05-10T15:59:12.749Z",
     "failedLoginAttempts": 0,
     "mustChangePassword": false
   },

@@ -1,5 +1,19 @@
 [
   {
+    "id": "topic_1778430285586_0nva2c",
+    "tutorialId": "tutorial_1778428884317_k0e0lf",
+    "title": "品牌理念太抽象？用IP把企业愿景拍成用户看得懂的短片",
+    "angle": "方法论型",
+    "hookType": "痛点开头",
+    "painPoint": "品牌理念、使命愿景太空泛，直接讲用户听不懂也记不住，不知道如何把抽象价值观转成具",
+    "audience": "已有品牌IP形象，想用AI制作品牌宣传片",
+    "platformFit": [
+      "document"
+    ],
+    "viralScore": 72,
+    "createdAt": "2026-05-10T16:24:45.586Z"
+  },
+  {
     "id": "topic_1778288567569_esay7j",
     "tutorialId": "tutorial_1778288552477_b0t1gm",
     "title": "老板别再追AI热搜：用3道筛子判断什么该看、什么该投",

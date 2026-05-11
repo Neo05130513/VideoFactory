@@ -1,5 +1,24 @@
 [
   {
+    "id": "video_project_1778431308725_5j08g5",
+    "tutorialId": "tutorial_1778428884317_k0e0lf",
+    "topicId": "topic_1778430285586_0nva2c",
+    "scriptId": "script_1778430344400_8679vi",
+    "status": "completed",
+    "template": "hyperframes-explainer-v1",
+    "title": "3种模式，让IP传递你的品牌理念",
+    "aspectRatio": "16:9",
+    "createdAt": "2026-05-10T16:41:48.725Z",
+    "updatedAt": "2026-05-10T17:33:24.745Z",
+    "outputPath": "/generated/remotion/video_project_1778431308725_5j08g5/output.mp4",
+    "lastRenderAttemptAt": "2026-05-10T17:04:35.982Z",
+    "visualPreset": "clarity-blue",
+    "publishScore": 100,
+    "publishTier": "publishable",
+    "opsStatus": "idle",
+    "opsUpdatedAt": "2026-05-10T16:41:48.725Z"
+  },
+  {
     "id": "video_project_1778288697177_y5hr8o",
     "tutorialId": "tutorial_1778288552477_b0t1gm",
     "topicId": "topic_1778288567569_esay7j",

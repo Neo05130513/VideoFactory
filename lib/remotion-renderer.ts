@@ -54,6 +54,21 @@ function getAudioTailTrimSec() {
   return Number.isFinite(value) ? Math.max(0, Math.min(0.5, value)) : 0.18;
 }
 
+function getRemotionRenderScale() {
+  const value = Number(process.env.REMOTION_RENDER_SCALE || 1);
+  return Number.isFinite(value) ? Math.max(0.25, Math.min(1, value)) : 1;
+}
+
+function getRemotionRenderCrf() {
+  const value = Number(process.env.REMOTION_RENDER_CRF || 20);
+  return Number.isFinite(value) ? Math.max(1, Math.min(51, value)) : 20;
+}
+
+function getRemotionRenderConcurrency() {
+  const value = Number(process.env.REMOTION_RENDER_CONCURRENCY || 2);
+  return Number.isFinite(value) ? Math.max(1, Math.min(8, Math.round(value))) : 2;
+}
+
 function getAudioSegmentTiming(audioDurationSec: number) {
   const leadTrimSec = Math.min(getAudioLeadTrimSec(), Math.max(0, audioDurationSec - 0.7));
   const tailTrimSec = Math.min(getAudioTailTrimSec(), Math.max(0, audioDurationSec - leadTrimSec - 0.7));
@@ -74,6 +89,7 @@ function getAudioSegmentTiming(audioDurationSec: number) {
 
 function getRemotionTtsProvider() {
   const provider = (process.env.REMOTION_TTS_PROVIDER || 'voice-profile').trim().toLowerCase();
+  if (['none', 'off', 'false', 'disabled', 'silent'].includes(provider)) return 'none';
   if (['cosyvoice-preset', 'dashscope-preset', 'dashscope', 'preset'].includes(provider)) return 'cosyvoice-preset';
   return 'voice-profile';
 }
@@ -151,6 +167,126 @@ async function readVideoState() {
   return { projects, scenes, assets, scripts, topics, tutorials };
 }
 
+function normalizeDisplayText(value?: string | null) {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .replace(/[“”"']/g, '')
+    .trim();
+}
+
+function splitDisplayCandidates(value?: string | null) {
+  return normalizeDisplayText(value)
+    .replace(/([。！？!?；;：:，、,])/g, '$1\n')
+    .split('\n')
+    .map((item) => item.replace(/[。！？!?；;：:，、,]+$/g, '').trim())
+    .filter(Boolean);
+}
+
+function compactDisplayLabel(value?: string | null, maxLength = 12) {
+  let text = normalizeDisplayText(value)
+    .replace(/^(这里|这类内容|很多品牌|很多|如果|因为|所以|但是|而是|同时|另外|其实|问题是|需要|可以|就是|它可以|它要|它会)/, '')
+    .replace(/^(第一|第二|第三|第四|第五|第六)[步点：:、\s]*/, '')
+    .replace(/^(一是|二是|三是|四是|五是|六是)[：:、\s]*/, '')
+    .replace(/^(把|让|用|通过|完成|实现)/, '')
+    .trim();
+
+  if (!text) return '';
+  const clauses = splitDisplayCandidates(text);
+  if (clauses.length > 1) text = clauses[0];
+
+  if (text.length > maxLength && text.includes('，')) {
+    text = text.split('，').find((item) => item.length >= 2 && item.length <= maxLength) || text;
+  }
+  if (text.length > maxLength && text.includes('、')) {
+    text = text.split('、').find((item) => item.length >= 2 && item.length <= maxLength) || text;
+  }
+  if (text.length > maxLength && text.includes('的')) {
+    const tail = text.split('的').slice(-2).join('的');
+    if (tail.length >= 2 && tail.length <= maxLength) text = tail;
+  }
+  if (text.length > maxLength) {
+    text = text
+      .replace(/更生动地/g, '生动')
+      .replace(/品牌宣传视频/g, '品牌片')
+      .replace(/品牌理念/g, '理念')
+      .replace(/企业文化/g, '文化')
+      .replace(/使命愿景/g, '愿景')
+      .replace(/用户熟悉的/g, '熟悉')
+      .replace(/提升认知度和好感度/g, '提升好感');
+  }
+  return text.length <= maxLength ? text : text.slice(0, maxLength);
+}
+
+function uniqueDisplayLabels(values: string[]) {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const value of values) {
+    const normalized = normalizeDisplayText(value);
+    if (!normalized || seen.has(normalized)) continue;
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+
+function deriveDisplayCards(scene: VideoScene) {
+  const candidates = [
+    ...(scene.cards || []),
+    ...(scene.keywords || []),
+    scene.emphasis || '',
+    ...splitDisplayCandidates(scene.voiceover),
+    ...splitDisplayCandidates(scene.subtitle)
+  ];
+  return uniqueDisplayLabels(
+    candidates
+      .map((item) => compactDisplayLabel(item, 12))
+      .filter((item) => item.length >= 2)
+      .filter((item) => item !== compactDisplayLabel(scene.headline, 12))
+  ).slice(0, scene.layout === 'process' || scene.layout === 'timeline' ? 5 : 4);
+}
+
+function deriveDisplayHeadline(scene: VideoScene, cards: string[]) {
+  const current = compactDisplayLabel(scene.headline, 18);
+  if (current.length >= 4) return current;
+  const subtitle = compactDisplayLabel(scene.subtitle, 18);
+  if (subtitle.length >= 4) return subtitle;
+  const voiceover = compactDisplayLabel(splitDisplayCandidates(scene.voiceover)[0], 18);
+  return voiceover || cards[0] || '核心结构';
+}
+
+function deriveDisplaySubtitle(scene: VideoScene, headline: string, cards: string[]) {
+  const joinedCards = cards.filter((item) => item !== headline).slice(0, 3).join(' / ');
+  if (joinedCards) return joinedCards;
+  const current = compactDisplayLabel(scene.subtitle, 24);
+  if (current && current !== headline) return current;
+  return compactDisplayLabel(scene.emphasis, 24) || headline;
+}
+
+function enhanceSceneDisplayLayer(scene: VideoScene): VideoScene {
+  const cleanScene = sanitizeSceneText(scene);
+  const cards = deriveDisplayCards(cleanScene);
+  const headline = deriveDisplayHeadline(cleanScene, cards);
+  const subtitle = deriveDisplaySubtitle(cleanScene, headline, cards);
+  const emphasis = compactDisplayLabel(cleanScene.emphasis, 12)
+    || cards.find((item) => item !== headline)
+    || compactDisplayLabel(cleanScene.keywords?.[0], 12)
+    || undefined;
+  const keywords = uniqueDisplayLabels([
+    ...(cleanScene.keywords || []).map((item) => compactDisplayLabel(item, 10)),
+    ...cards.map((item) => compactDisplayLabel(item, 10)),
+    compactDisplayLabel(headline, 10)
+  ]).filter(Boolean).slice(0, 6);
+
+  return {
+    ...cleanScene,
+    headline,
+    subtitle,
+    emphasis,
+    cards,
+    keywords
+  };
+}
+
 function toRemotionInput(project: VideoProject, scenes: VideoScene[], audioBySceneId: Map<string, SceneAudioInfo>, projectAudio?: ProjectAudioTrack | null): RemotionVideoInput {
   return {
     project: {
@@ -162,10 +298,10 @@ function toRemotionInput(project: VideoProject, scenes: VideoScene[], audioBySce
       audioPath: projectAudio?.publicPath
     },
     scenes: scenes.map((rawScene) => {
-      const scene = sanitizeSceneText(rawScene);
+      const scene = enhanceSceneDisplayLayer(rawScene);
       const audio = audioBySceneId.get(scene.id);
       const durationSec = audio ? Math.max(scene.durationSec, audio.durationSec + getAudioTailPaddingSec()) : scene.durationSec;
-      const cueSource = scene.voiceover || scene.subtitle;
+      const cueSource = rawScene.voiceover || rawScene.subtitle || scene.voiceover || scene.subtitle;
       return ({
       id: scene.id,
       order: scene.order,
@@ -330,6 +466,12 @@ async function prepareSceneAudio(params: {
   onProgress?: RenderOptions['onProgress'];
 }) {
   const provider = getRemotionTtsProvider();
+  if (provider === 'none') {
+    const cleanedScenes = params.scenes.map((scene) => sanitizeSceneText(scene));
+    await params.onProgress?.({ stage: 'audio-skipped', progress: 34, detail: 'Voiceover is disabled; rendering with visual timing only.' });
+    return { audioBySceneId: new Map<string, SceneAudioInfo>(), createdAssets: [], scenes: cleanedScenes };
+  }
+
   const profile = provider === 'voice-profile' ? await getDefaultVoiceProfile() : null;
   const audioBySceneId = new Map<string, SceneAudioInfo>();
   const createdAssets: VideoAsset[] = [];
@@ -429,7 +571,7 @@ export async function renderVideoProjectWithRemotion(projectId: string, options:
       existingAssets: state.assets,
       onProgress: options.onProgress
     });
-    const renderScenes = preparedAudio.scenes;
+    const renderScenes = preparedAudio.scenes.map((scene) => enhanceSceneDisplayLayer(scene));
     const projectAudio = await buildProjectVoiceoverTrack({
       projectId,
       scenes: renderScenes,
@@ -466,7 +608,18 @@ export async function renderVideoProjectWithRemotion(projectId: string, options:
       serveUrl,
       codec: 'h264',
       outputLocation: outputAbsolutePath,
-      inputProps: inputProps as unknown as Record<string, unknown>
+      inputProps: inputProps as unknown as Record<string, unknown>,
+      crf: getRemotionRenderCrf(),
+      concurrency: getRemotionRenderConcurrency(),
+      scale: getRemotionRenderScale(),
+      onProgress: (progress: { progress: number; renderedFrames: number; encodedFrames: number }) => {
+        const percent = 80 + Math.round(Math.max(0, Math.min(1, progress.progress)) * 14);
+        void options.onProgress?.({
+          stage: 'rendering-media',
+          progress: percent,
+          detail: `Rendering MP4: ${progress.renderedFrames} rendered, ${progress.encodedFrames} encoded.`
+        });
+      }
     });
 
     await options.onProgress?.({ stage: 'saving-results', progress: 94, detail: 'Saving video assets and project state.' });
