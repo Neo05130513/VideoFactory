@@ -1,6 +1,7 @@
 import { createHash } from 'crypto';
 import { execFile } from 'child_process';
 import { existsSync } from 'fs';
+import { copyFile, readFile, readdir, rename, stat, unlink } from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
 import { ensureDirectory, nowIso, readJsonFile, simpleId, writeJsonFile, writeTextFile } from './storage';
@@ -39,6 +40,22 @@ type RenderOptions = {
   onProgress?: (progress: RemotionRenderProgress) => void | Promise<void>;
 };
 
+type FfmpegOverrideInfo = {
+  type: 'pre-stitcher' | 'stitcher';
+  args: string[];
+};
+
+type RemotionGpuEncoderConfig = {
+  enabled: true;
+  encoder: 'h264_nvenc';
+  ffmpegPath: string;
+  ffprobePath: string;
+  binariesDirectory: string;
+  quality: number;
+  audioCodec: 'mp3';
+  ffmpegOverride: (info: FfmpegOverrideInfo) => string[];
+};
+
 function getAudioTailPaddingSec() {
   const value = Number(process.env.REMOTION_AUDIO_TAIL_PADDING_SEC || 0.16);
   return Number.isFinite(value) ? Math.max(0, Math.min(0.5, value)) : 0.16;
@@ -67,6 +84,239 @@ function getRemotionRenderCrf() {
 function getRemotionRenderConcurrency() {
   const value = Number(process.env.REMOTION_RENDER_CONCURRENCY || 2);
   return Number.isFinite(value) ? Math.max(1, Math.min(8, Math.round(value))) : 2;
+}
+
+function getRemotionGpuEncoderMode() {
+  const value = (process.env.REMOTION_GPU_ENCODER || process.env.REMOTION_HARDWARE_ENCODER || 'auto').trim().toLowerCase();
+  if (['0', 'false', 'off', 'disable', 'disabled', 'cpu', 'none'].includes(value)) return 'off' as const;
+  if (['1', 'true', 'on', 'required', 'require', 'nvenc', 'nvidia'].includes(value)) return 'required' as const;
+  return 'auto' as const;
+}
+
+async function fileExists(filePath: string) {
+  try {
+    const item = await stat(filePath);
+    return item.isFile();
+  } catch {
+    return false;
+  }
+}
+
+async function resolveWindowsCommandShim(filePath: string, executableName: string) {
+  if (!['.cmd', '.bat'].includes(path.extname(filePath).toLowerCase())) return filePath;
+  try {
+    const content = await readFile(filePath, 'utf-8');
+    const escapedExecutableName = executableName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const quotedMatch = content.match(new RegExp(`"([^"]*${escapedExecutableName})"`, 'i'));
+    if (quotedMatch?.[1]) return quotedMatch[1];
+    const plainMatch = content.match(new RegExp(`([A-Z]:\\\\[^\\r\\n"]*${escapedExecutableName})`, 'i'));
+    if (plainMatch?.[1]) return plainMatch[1];
+  } catch {
+    return filePath;
+  }
+  return filePath;
+}
+
+async function findOnPath(command: string) {
+  const lookup = process.platform === 'win32' ? 'where.exe' : 'which';
+  try {
+    const { stdout } = await execFileAsync(lookup, [command]);
+    return stdout
+      .split(/\r?\n/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+async function resolveExecutableCandidate(candidate: string | undefined, executableName: string) {
+  if (!candidate?.trim()) return null;
+  const trimmed = candidate.trim();
+  const candidates = path.isAbsolute(trimmed) || /[\\/]/.test(trimmed)
+    ? [trimmed]
+    : await findOnPath(trimmed);
+
+  for (const candidatePath of candidates) {
+    const resolvedPath = process.platform === 'win32'
+      ? await resolveWindowsCommandShim(candidatePath, executableName)
+      : candidatePath;
+    if (await fileExists(resolvedPath)) return resolvedPath;
+  }
+
+  return null;
+}
+
+async function findExternalFfmpegPath() {
+  const candidates = [
+    process.env.REMOTION_GPU_FFMPEG_PATH,
+    process.env.REMOTION_FFMPEG_PATH,
+    process.env.FFMPEG_PATH,
+    'ffmpeg'
+  ];
+
+  for (const candidate of candidates) {
+    const resolvedPath = await resolveExecutableCandidate(candidate, process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
+    if (resolvedPath) return resolvedPath;
+  }
+
+  return null;
+}
+
+async function findExternalFfprobePath(ffmpegPath: string) {
+  const siblingName = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe';
+  const siblingPath = path.join(path.dirname(ffmpegPath), siblingName);
+  if (await fileExists(siblingPath)) return siblingPath;
+
+  const candidates = [
+    process.env.REMOTION_GPU_FFPROBE_PATH,
+    process.env.REMOTION_FFPROBE_PATH,
+    process.env.FFPROBE_PATH,
+    'ffprobe'
+  ];
+
+  for (const candidate of candidates) {
+    const resolvedPath = await resolveExecutableCandidate(candidate, siblingName);
+    if (resolvedPath) return resolvedPath;
+  }
+
+  return null;
+}
+
+async function ffmpegSupportsEncoder(ffmpegPath: string, encoder: string) {
+  try {
+    const { stdout, stderr } = await execFileAsync(ffmpegPath, ['-hide_banner', '-encoders'], { maxBuffer: 1024 * 1024 * 6 });
+    return `${stdout}\n${stderr}`.includes(encoder);
+  } catch {
+    return false;
+  }
+}
+
+function getBundledRemotionBinariesDirectory() {
+  if (process.platform !== 'win32' || process.arch !== 'x64') return null;
+  return resolveAppPath(path.join('node_modules', '@remotion', 'compositor-win32-x64-msvc'));
+}
+
+async function copyIfChanged(sourcePath: string, destinationPath: string) {
+  const sourceStat = await stat(sourcePath);
+  const destinationStat = await stat(destinationPath).catch(() => null);
+  if (destinationStat?.isFile() && destinationStat.size === sourceStat.size) return;
+  await copyFile(sourcePath, destinationPath);
+}
+
+async function copyExecutableIfChanged(sourcePath: string, destinationPath: string) {
+  const sourceStat = await stat(sourcePath);
+  const destinationStat = await stat(destinationPath).catch(() => null);
+  if (destinationStat?.isFile() && destinationStat.size === sourceStat.size) return;
+  await unlink(destinationPath).catch(() => undefined);
+  await copyFile(sourcePath, destinationPath);
+}
+
+async function prepareGpuRemotionBinaries(ffmpegPath: string, ffprobePath: string) {
+  const sourceDirectory = getBundledRemotionBinariesDirectory();
+  if (!sourceDirectory || !existsSync(sourceDirectory)) {
+    throw new Error('GPU rendering is currently wired for the Windows x64 Remotion compositor only.');
+  }
+
+  const binariesDirectory = process.env.REMOTION_GPU_BINARIES_DIRECTORY || resolveAppPath(path.join('.run', 'remotion-nvenc-binaries'));
+  await ensureDirectory(binariesDirectory);
+  const entries = await readdir(sourceDirectory, { withFileTypes: true });
+  await Promise.all(entries
+    .filter((entry) => entry.isFile())
+    .filter((entry) => !['ffmpeg.exe', 'ffprobe.exe', 'ffmpeg', 'ffprobe'].includes(entry.name.toLowerCase()))
+    .map((entry) => copyIfChanged(path.join(sourceDirectory, entry.name), path.join(binariesDirectory, entry.name))));
+
+  await Promise.all([
+    copyExecutableIfChanged(ffmpegPath, path.join(binariesDirectory, process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg')),
+    copyExecutableIfChanged(ffprobePath, path.join(binariesDirectory, process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe'))
+  ]);
+
+  return binariesDirectory;
+}
+
+function createNvencFfmpegOverride(quality: number) {
+  return ({ args }: FfmpegOverrideInfo) => {
+    const nextArgs: string[] = [];
+    for (let index = 0; index < args.length; index += 1) {
+      const arg = args[index];
+      const next = args[index + 1];
+      if ((arg === '-c:v' || arg === '-vcodec') && next === 'libx264') {
+        nextArgs.push(arg, 'h264_nvenc', '-preset', 'p4', '-rc', 'vbr', '-cq', String(quality), '-b:v', '0');
+        index += 1;
+        continue;
+      }
+      if (arg === '-crf') {
+        index += 1;
+        continue;
+      }
+      nextArgs.push(arg);
+    }
+    return nextArgs;
+  };
+}
+
+async function resolveRemotionGpuEncoderConfig(quality: number): Promise<RemotionGpuEncoderConfig | null> {
+  const mode = getRemotionGpuEncoderMode();
+  if (mode === 'off') return null;
+
+  const ffmpegPath = await findExternalFfmpegPath();
+  if (!ffmpegPath) {
+    if (mode === 'required') throw new Error('REMOTION_GPU_ENCODER requires an external ffmpeg with h264_nvenc, but no ffmpeg executable was found.');
+    return null;
+  }
+
+  const ffprobePath = await findExternalFfprobePath(ffmpegPath);
+  if (!ffprobePath) {
+    if (mode === 'required') throw new Error('REMOTION_GPU_ENCODER requires ffprobe next to the NVENC ffmpeg, but ffprobe was not found.');
+    return null;
+  }
+
+  const binariesDirectory = await prepareGpuRemotionBinaries(ffmpegPath, ffprobePath);
+  const stagedFfmpegPath = path.join(binariesDirectory, process.platform === 'win32' ? 'ffmpeg.exe' : 'ffmpeg');
+  const stagedFfprobePath = path.join(binariesDirectory, process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe');
+  if (!(await ffmpegSupportsEncoder(stagedFfmpegPath, 'h264_nvenc'))) {
+    if (mode === 'required') throw new Error(`The configured ffmpeg does not provide h264_nvenc: ${ffmpegPath}`);
+    return null;
+  }
+
+  return {
+    enabled: true,
+    encoder: 'h264_nvenc',
+    ffmpegPath: stagedFfmpegPath,
+    ffprobePath: stagedFfprobePath,
+    binariesDirectory,
+    quality,
+    audioCodec: 'mp3',
+    ffmpegOverride: createNvencFfmpegOverride(quality)
+  };
+}
+
+async function normalizeGpuRenderAudioToAac(outputAbsolutePath: string, gpuEncoder: RemotionGpuEncoderConfig) {
+  const tempOutputPath = outputAbsolutePath.replace(/\.mp4$/i, '') + '.aac-normalized.mp4';
+  const backupPath = outputAbsolutePath.replace(/\.mp4$/i, '') + '.before-aac-normalize.mp4';
+  await unlink(tempOutputPath).catch(() => undefined);
+  await unlink(backupPath).catch(() => undefined);
+
+  await execFileAsync(gpuEncoder.ffmpegPath, [
+    '-y',
+    '-i', outputAbsolutePath,
+    '-map', '0:v:0',
+    '-map', '0:a?',
+    '-c:v', 'copy',
+    '-c:a', 'aac',
+    '-b:a', process.env.REMOTION_GPU_AAC_BITRATE || '192k',
+    '-movflags', 'faststart',
+    tempOutputPath
+  ], { maxBuffer: 1024 * 1024 * 8 });
+
+  await rename(outputAbsolutePath, backupPath);
+  try {
+    await rename(tempOutputPath, outputAbsolutePath);
+    await unlink(backupPath).catch(() => undefined);
+  } catch (error) {
+    await rename(backupPath, outputAbsolutePath).catch(() => undefined);
+    throw error;
+  }
 }
 
 function getAudioSegmentTiming(audioDurationSec: number) {
@@ -637,6 +887,8 @@ export async function renderVideoProjectWithRemotion(projectId: string, options:
     const inputRelativePath = generatedRelativePath('remotion', projectId, 'input.json');
     const subtitleRelativePath = generatedRelativePath('remotion', projectId, 'subtitles.srt');
     const outputAbsolutePath = resolveAppPath(outputRelativePath);
+    const renderQuality = getRemotionRenderCrf();
+    const gpuEncoder = await resolveRemotionGpuEncoderConfig(renderQuality);
 
     await ensureDirectory(path.dirname(outputAbsolutePath));
     await writeTextFile(inputRelativePath, JSON.stringify(inputProps, null, 2) + '\n');
@@ -652,19 +904,29 @@ export async function renderVideoProjectWithRemotion(projectId: string, options:
     const composition = await selectComposition({
       serveUrl,
       id: getCompositionId(renderingProject.template),
-      inputProps: inputProps as unknown as Record<string, unknown>
+      inputProps: inputProps as unknown as Record<string, unknown>,
+      binariesDirectory: gpuEncoder?.binariesDirectory
     });
 
-    await options.onProgress?.({ stage: 'rendering-media', progress: 80, detail: 'Rendering final MP4.' });
+    await options.onProgress?.({
+      stage: 'rendering-media',
+      progress: 80,
+      detail: gpuEncoder
+        ? `Rendering final MP4 with ${gpuEncoder.encoder}.`
+        : 'Rendering final MP4.'
+    });
     await renderMedia({
       composition,
       serveUrl,
       codec: 'h264',
       outputLocation: outputAbsolutePath,
       inputProps: inputProps as unknown as Record<string, unknown>,
-      crf: getRemotionRenderCrf(),
+      crf: gpuEncoder ? null : renderQuality,
       concurrency: getRemotionRenderConcurrency(),
       scale: getRemotionRenderScale(),
+      binariesDirectory: gpuEncoder?.binariesDirectory,
+      ffmpegOverride: gpuEncoder?.ffmpegOverride,
+      audioCodec: gpuEncoder?.audioCodec,
       onProgress: (progress: { progress: number; renderedFrames: number; encodedFrames: number }) => {
         const percent = 80 + Math.round(Math.max(0, Math.min(1, progress.progress)) * 14);
         void options.onProgress?.({
@@ -674,6 +936,11 @@ export async function renderVideoProjectWithRemotion(projectId: string, options:
         });
       }
     });
+
+    if (gpuEncoder) {
+      await options.onProgress?.({ stage: 'normalizing-audio', progress: 93, detail: 'Normalizing GPU render audio to AAC.' });
+      await normalizeGpuRenderAudioToAac(outputAbsolutePath, gpuEncoder);
+    }
 
     await options.onProgress?.({ stage: 'saving-results', progress: 94, detail: 'Saving video assets and project state.' });
     const publicOutputPath = publicPathFromRelative(outputRelativePath);

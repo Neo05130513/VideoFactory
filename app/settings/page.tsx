@@ -4,18 +4,21 @@ import Link from 'next/link';
 import { StudioShell } from '../_components/studio-shell';
 import { EmptyGuide, linkButtonStyle, MetricTile, newWindowLinkProps, Panel, SectionTitle, StatusBadge, subtlePanelStyle } from '../_components/studio-ui';
 import { getCurrentUser } from '@/lib/auth';
+import { getSafeAiSettings } from '@/lib/ai-settings';
 import { getPerformanceSettings } from '@/lib/performance/settings';
 import { getVideoRuntimeStatus } from '@/lib/queries';
 import { listVoiceProfiles } from '@/lib/voice-profiles';
 import { getSafeVoiceSettings } from '@/lib/voice-settings';
+import { AiServiceSettingsClient } from './ai-service-settings-client';
 import { PerformanceSettingsClient } from './performance-settings-client';
 
 export default async function SettingsPage() {
-  const [user, runtime, voiceSettings, performance] = await Promise.all([
+  const [user, runtime, voiceSettings, performance, aiSettings] = await Promise.all([
     getCurrentUser(),
     getVideoRuntimeStatus(),
     getSafeVoiceSettings(),
-    getPerformanceSettings()
+    getPerformanceSettings(),
+    getSafeAiSettings()
   ]);
   const voices = user ? (await listVoiceProfiles()).filter((profile) => profile.userId === user.id) : [];
   const defaultVoice = voices.find((profile) => profile.isDefault) || voices.find((profile) => profile.status === 'ready');
@@ -70,6 +73,11 @@ export default async function SettingsPage() {
       </Panel>
 
       <Panel style={{ display: 'grid', gap: 16 }}>
+        <SectionTitle title="AI 服务配置" note="保留 .env.local 默认值；这里保存的配置会优先用于脚本、分镜、出图和旁白。" />
+        <AiServiceSettingsClient initialSettings={aiSettings} />
+      </Panel>
+
+      <Panel style={{ display: 'grid', gap: 16 }}>
         <SectionTitle title="存储位置" note="桌面版运行时，数据目录必须指向用户可写位置，避免写入应用安装目录。" />
         <div style={{ display: 'grid', gap: 10 }}>
           <PathRow label="应用目录" value={runtime.appRoot} />
@@ -84,10 +92,13 @@ export default async function SettingsPage() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
           <InfoRow label="Node" value={runtime.nodeVersion} />
           <InfoRow label="平台" value={`${runtime.platform} / ${runtime.arch}`} />
-          <InfoRow label="OpenAI 文本模型" value={process.env.OPENAI_TEXT_MODEL || 'gpt-5.4'} />
-          <InfoRow label="OpenAI 图片模型" value={process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1'} />
-          <InfoRow label="OpenAI TTS 模型" value={process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts'} />
-          <InfoRow label="OpenAI TTS 声音" value={process.env.OPENAI_TTS_VOICE || 'alloy'} />
+          <InfoRow label="OpenAI 文本模型" value={aiSettings.openaiTextModel || 'gpt-5.4'} />
+          <InfoRow label="OpenAI 图片模型" value={aiSettings.openaiImageModel || 'gpt-image-1'} />
+          <InfoRow label="OpenAI TTS 模型" value={aiSettings.openaiTtsModel || 'gpt-4o-mini-tts'} />
+          <InfoRow label="OpenAI TTS 声音" value={aiSettings.openaiTtsVoice || 'alloy'} />
+          <InfoRow label="AI 文本供应商" value={aiSettings.textGenerationProvider} />
+          <InfoRow label="AI 出图供应商" value={aiSettings.videoImageProvider} />
+          <InfoRow label="AI 旁白供应商" value={aiSettings.videoSpeechProvider} />
           <InfoRow label="CosyVoice 模型" value={voiceSettings.cosyvoiceModel || '未设置'} />
           <InfoRow label="CosyVoice 克隆模型" value={voiceSettings.cosyvoiceCloneModel || '未设置'} />
           <InfoRow label="MiniMax TTS 模型" value={voiceSettings.minimaxTtsModel || '未设置'} />

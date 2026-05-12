@@ -1,6 +1,7 @@
 import path from 'path';
 import { readFile, writeFile } from 'fs/promises';
 import { EnvHttpProxyAgent, fetch as undiciFetch } from 'undici';
+import { getAiSettings, type AiServiceSettings } from '@/lib/ai-settings';
 import { ensureDirectory } from '@/lib/storage';
 import { publicPathFromRelative, resolveAppPath } from '@/lib/runtime/paths';
 import type { VoiceSettings } from '@/lib/types';
@@ -70,19 +71,31 @@ interface MiniMaxTextOptions {
   }) => void | Promise<void>;
 }
 
-function getMiniMaxConfig(settings?: VoiceSettings) {
+function pickConfigValue<T>(primary: T | undefined, secondary: T | undefined, fallback: T) {
+  return primary || secondary || fallback;
+}
+
+function getMiniMaxConfig(settings?: VoiceSettings, aiSettings?: AiServiceSettings, preferVoiceSettings = true) {
+  const first = preferVoiceSettings ? settings : undefined;
+  const second = preferVoiceSettings ? undefined : settings;
   return {
-    apiKey: settings?.minimaxApiKey || MINIMAX_API_KEY,
-    baseUrl: settings?.minimaxBaseUrl || MINIMAX_BASE_URL,
-    ttsModel: settings?.minimaxTtsModel || process.env.MINIMAX_TTS_MODEL || 'speech-2.8-hd',
-    cloneModel: settings?.minimaxCloneModel || settings?.minimaxTtsModel || process.env.MINIMAX_VOICE_CLONE_MODEL || process.env.MINIMAX_TTS_MODEL || 'speech-2.8-hd',
-    languageBoost: settings?.minimaxLanguageBoost || 'Chinese',
-    voicePrefix: settings?.minimaxVoicePrefix || 'VideoFactory'
+    apiKey: pickConfigValue(first?.minimaxApiKey, aiSettings?.minimaxApiKey || second?.minimaxApiKey, MINIMAX_API_KEY),
+    baseUrl: pickConfigValue(first?.minimaxBaseUrl, aiSettings?.minimaxBaseUrl || second?.minimaxBaseUrl, MINIMAX_BASE_URL),
+    ttsModel: pickConfigValue(first?.minimaxTtsModel, aiSettings?.minimaxTtsModel || second?.minimaxTtsModel, process.env.MINIMAX_TTS_MODEL || 'speech-2.8-hd'),
+    cloneModel: first?.minimaxCloneModel
+      || first?.minimaxTtsModel
+      || second?.minimaxCloneModel
+      || second?.minimaxTtsModel
+      || process.env.MINIMAX_VOICE_CLONE_MODEL
+      || process.env.MINIMAX_TTS_MODEL
+      || 'speech-2.8-hd',
+    languageBoost: first?.minimaxLanguageBoost || second?.minimaxLanguageBoost || 'Chinese',
+    voicePrefix: first?.minimaxVoicePrefix || second?.minimaxVoicePrefix || 'VideoFactory'
   };
 }
 
-function getAuthHeaders(settings?: VoiceSettings) {
-  const config = getMiniMaxConfig(settings);
+function getAuthHeaders(settings?: VoiceSettings, aiSettings?: AiServiceSettings, preferVoiceSettings = true) {
+  const config = getMiniMaxConfig(settings, aiSettings, preferVoiceSettings);
   if (!config.apiKey) {
     throw new Error('MINIMAX_API_KEY is not configured');
   }
@@ -94,8 +107,8 @@ function getAuthHeaders(settings?: VoiceSettings) {
   };
 }
 
-function getMultipartAuthHeaders(settings?: VoiceSettings) {
-  const config = getMiniMaxConfig(settings);
+function getMultipartAuthHeaders(settings?: VoiceSettings, aiSettings?: AiServiceSettings, preferVoiceSettings = true) {
+  const config = getMiniMaxConfig(settings, aiSettings, preferVoiceSettings);
   if (!config.apiKey) {
     throw new Error('MINIMAX_API_KEY is not configured');
   }
@@ -243,12 +256,20 @@ function ensureMiniMaxBaseResp(payload: any, endpoint: string) {
   }
 }
 
-export function isMiniMaxConfigured() {
-  return Boolean(MINIMAX_API_KEY);
+export async function isMiniMaxConfigured() {
+  const aiSettings = await getAiSettings();
+  if (aiSettings.minimaxApiKey) return true;
+  try {
+    const settings = await getVoiceSettings();
+    return Boolean(settings.minimaxApiKey);
+  } catch {
+    return Boolean(MINIMAX_API_KEY);
+  }
 }
 
 export async function isMiniMaxTextConfigured() {
-  if (MINIMAX_API_KEY) return true;
+  const aiSettings = await getAiSettings();
+  if (aiSettings.minimaxApiKey) return true;
   try {
     const settings = await getVoiceSettings();
     return Boolean(settings.minimaxApiKey);
@@ -321,18 +342,16 @@ function pullNextSseEvent(buffer: string) {
 }
 
 export async function generateTextWithMiniMax(options: MiniMaxTextOptions) {
+  const aiSettings = await getAiSettings();
   const settings = options.settings || await getVoiceSettings().catch(() => undefined);
-  const apiKey = settings?.minimaxApiKey || MINIMAX_API_KEY;
+  const config = getMiniMaxConfig(settings, aiSettings, false);
+  const apiKey = config.apiKey;
   if (!apiKey) return null;
 
   const endpoint = '/v1/text/chatcompletion_v2';
-  const textBaseUrl = process.env.MINIMAX_TEXT_BASE_URL
-    || settings?.minimaxBaseUrl
-    || process.env.MINIMAX_API_HOST
-    || process.env.MINIMAX_BASE_URL
-    || MINIMAX_TEXT_BASE_URL;
+  const textBaseUrl = aiSettings.minimaxTextBaseUrl || config.baseUrl || MINIMAX_TEXT_BASE_URL;
   const requestBody = {
-    model: options.model || process.env.MINIMAX_TEXT_MODEL || 'MiniMax-M2.7',
+    model: options.model || aiSettings.minimaxTextModel,
     messages: [
       {
         role: 'system',
@@ -385,7 +404,7 @@ export async function generateTextWithMiniMax(options: MiniMaxTextOptions) {
         `${textBaseUrl}${endpoint}`,
         {
           method: 'POST',
-          headers: getAuthHeaders(settings),
+          headers: getAuthHeaders(settings, aiSettings, false),
           body: JSON.stringify(requestBody)
         },
         `text generation request at ${endpoint}`,
@@ -589,11 +608,16 @@ export async function generateTextWithMiniMax(options: MiniMaxTextOptions) {
 }
 
 export async function generateImageWithMiniMax(options: MiniMaxImageOptions) {
-  if (!MINIMAX_API_KEY) return null;
+  const [aiSettings, settings] = await Promise.all([
+    getAiSettings(),
+    getVoiceSettings().catch(() => undefined)
+  ]);
+  const config = getMiniMaxConfig(settings, aiSettings, false);
+  if (!config.apiKey) return null;
 
   const endpoint = '/v1/image_generation';
   const requestBody = {
-    model: options.model || process.env.MINIMAX_IMAGE_MODEL || 'image-01',
+    model: options.model || aiSettings.minimaxImageModel,
     prompt: options.prompt,
     aspect_ratio: inferAspectRatio(options.width, options.height),
     n: 1,
@@ -602,10 +626,10 @@ export async function generateImageWithMiniMax(options: MiniMaxImageOptions) {
   };
 
   const response = await fetchWithMiniMaxDiagnostics(
-    `${MINIMAX_BASE_URL}${endpoint}`,
+    `${config.baseUrl}${endpoint}`,
     {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(settings, aiSettings, false),
       body: JSON.stringify(requestBody)
     },
     `image generation request at ${endpoint}`
@@ -634,16 +658,21 @@ export async function generateImageWithMiniMax(options: MiniMaxImageOptions) {
 }
 
 export async function synthesizeSpeechWithMiniMax(options: MiniMaxSpeechOptions) {
-  if (!MINIMAX_API_KEY) return null;
+  const [aiSettings, settings] = await Promise.all([
+    getAiSettings(),
+    getVoiceSettings().catch(() => undefined)
+  ]);
+  const config = getMiniMaxConfig(settings, aiSettings, false);
+  if (!config.apiKey) return null;
 
   const endpoint = '/v1/t2a_v2';
   const response = await fetchWithMiniMaxDiagnostics(
-    `${MINIMAX_BASE_URL}${endpoint}`,
+    `${config.baseUrl}${endpoint}`,
     {
       method: 'POST',
-      headers: getAuthHeaders(),
+      headers: getAuthHeaders(settings, aiSettings, false),
       body: JSON.stringify({
-        model: options.model || process.env.MINIMAX_TTS_MODEL || 'speech-2.8-hd',
+        model: options.model || config.ttsModel,
         text: options.text,
         stream: false,
         voice_setting: {

@@ -7,6 +7,8 @@ import { generateImageWithOpenAI, isOpenAIImageConfigured, isOpenAISpeechConfigu
 import { nowIso, readJsonFile, simpleId, writeJsonFile, writeTextFile, ensureDirectory } from './storage';
 import { commandExists, getExecutablePath } from './runtime/commands';
 import { generatedRelativePath, publicPathFromRelative, resolveAppPath } from './runtime/paths';
+import { getAiSettings } from './ai-settings';
+import { extractDisplayModules, pickDisplayHeadline, pickDisplayLabel, pickDisplayLabels } from './display-labels';
 import { buildScriptShotBreakdown } from './script-shots';
 import { planStoryboardWithAI } from './storyboard-planner';
 import { refundReservation } from './credits';
@@ -150,6 +152,9 @@ function compactVisualLabel(value: string, maxLength = 16) {
 }
 
 function sceneKeywords(text: string, fallback: string[] = []) {
+  const semanticWords = pickDisplayLabels([text, fallback.join(' / ')], 5, 10);
+  if (semanticWords.length) return semanticWords;
+
   const words = text
     .split(/[，。！？；、：\s]/)
     .map((item) => compactVisualLabel(item, 12))
@@ -192,6 +197,7 @@ function extractExplicitItems(text: string) {
       .replace(/^(第一|第二|第三|第四|第五|一是|二是|三是|四是|五是|先|再|最后)\s*/, '')
       .replace(/^块是/, '')
       .trim())
+    .flatMap((item) => pickDisplayLabels([item], 2, 16).length ? pickDisplayLabels([item], 2, 16) : [compactVisualLabel(item, 16)])
     .map((item) => compactVisualLabel(item, 16))
     .filter(isUsefulVisualTerm);
 
@@ -201,6 +207,9 @@ function extractExplicitItems(text: string) {
 function sceneCards(text: string, maxItems = 4) {
   const explicitItems = extractExplicitItems(text);
   if (explicitItems.length) return explicitItems.slice(0, maxItems);
+
+  const semanticItems = extractDisplayModules(text, maxItems, 16);
+  if (semanticItems.length) return semanticItems.slice(0, maxItems);
 
   const parts = text
     .split(/[。！？；]/)
@@ -216,6 +225,8 @@ function shortenFragment(text: string, maxLength: number) {
 }
 
 function buildHeadline(text: string, fallback: string, maxLength = 16) {
+  const semantic = pickDisplayHeadline([text, fallback], maxLength);
+  if (semantic) return semantic;
   const clauses = text
     .split(/[，。！？；：]/)
     .map((item) => shortenFragment(item, maxLength))
@@ -230,9 +241,10 @@ function buildSceneCards(text: string, layout: VideoScene['layout'], fallbackTer
     : layout === 'timeline' || layout === 'process' || layout === 'toolchain' || layout === 'checklist'
       ? 5
       : 4;
-  const cards = explicitItems.length ? explicitItems : sceneCards(text, cardCount);
+  const cards = explicitItems.length ? explicitItems : extractDisplayModules(text, cardCount, 16);
+  const resolvedCards = cards.length ? cards : sceneCards(text, cardCount);
   const fallbackCards = fallbackTerms.map((item) => compactVisualLabel(item, 12)).filter(isUsefulVisualTerm);
-  return Array.from(new Set([...cards, ...fallbackCards])).slice(0, cardCount);
+  return Array.from(new Set([...resolvedCards, ...fallbackCards])).slice(0, cardCount);
 }
 
 function buildRichVisualPrompt(title: string, cards: string[], text: string) {
@@ -305,7 +317,7 @@ function aiSceneMetadata(params: {
       ? buildHeadline(params.script.hook || params.script.title, params.script.title, 16)
       : params.shotType === 'cta'
         ? '一周试跑清单'
-        : sceneTitle;
+        : pickDisplayHeadline([sceneTitle, cleanedText, params.title, params.script.title], 16) || sceneTitle;
   const keywords = sceneKeywords(cleanedText);
   const cards = buildSceneCards(cleanedText, layout, keywords);
   const emphasis =
@@ -313,7 +325,7 @@ function aiSceneMetadata(params: {
       ? '先稳客户管理'
       : params.shotType === 'cta'
         ? '立即执行'
-        : cards.find((item) => item !== headline)?.slice(0, 14) || keywords.find((item) => item !== headline)?.slice(0, 14) || '业务流程';
+        : pickDisplayLabel([cards.find((item) => item !== headline), keywords.find((item) => item !== headline), cleanedText], 14) || '业务流程';
   const chartData =
     /三类结果|负担变轻|衔接更顺|体验.*更稳/.test(cleanedText)
       ? [38, 58, 78, 88, 94]
@@ -635,21 +647,21 @@ function evaluatePublishability(params: {
   return { publishScore, publishTier };
 }
 
-function getVideoImageProvider() {
-  const provider = (process.env.VIDEO_IMAGE_PROVIDER || process.env.IMAGE_GENERATION_PROVIDER || 'openai').toLowerCase();
-  return provider === 'minimax' ? 'minimax' : 'openai';
+async function getVideoImageProvider() {
+  const settings = await getAiSettings();
+  return settings.videoImageProvider === 'minimax' ? 'minimax' : 'openai';
 }
 
-function getVideoSpeechProvider() {
-  const provider = (process.env.VIDEO_SPEECH_PROVIDER || process.env.VIDEO_TTS_PROVIDER || process.env.TTS_PROVIDER || 'openai').toLowerCase();
-  return provider === 'minimax' ? 'minimax' : 'openai';
+async function getVideoSpeechProvider() {
+  const settings = await getAiSettings();
+  return settings.videoSpeechProvider === 'minimax' ? 'minimax' : 'openai';
 }
 
 async function createSceneImageAsset(project: VideoProject, scene: VideoScene) {
   const relativePath = generatedRelativePath('image', project.id, `${scene.order.toString().padStart(2, '0')}-${scene.shotType}.png`);
-  const provider = getVideoImageProvider();
+  const provider = await getVideoImageProvider();
 
-  if (provider === 'openai' && isOpenAIImageConfigured()) {
+  if (provider === 'openai' && await isOpenAIImageConfigured()) {
     try {
       const generated = await generateImageWithOpenAI({
         prompt: buildAIImagePrompt(project, scene),
@@ -680,7 +692,7 @@ async function createSceneImageAsset(project: VideoProject, scene: VideoScene) {
     }
   }
 
-  if (provider === 'minimax' && isMiniMaxConfigured()) {
+  if (provider === 'minimax' && await isMiniMaxConfigured()) {
     try {
       const generated = await generateImageWithMiniMax({
         prompt: buildAIImagePrompt(project, scene),
@@ -721,9 +733,9 @@ async function createSceneImageAsset(project: VideoProject, scene: VideoScene) {
 
 async function createSceneAudioAsset(project: VideoProject, scene: VideoScene) {
   const relativePath = generatedRelativePath('audio', project.id, `${scene.order.toString().padStart(2, '0')}-${scene.shotType}.mp3`);
-  const provider = getVideoSpeechProvider();
+  const provider = await getVideoSpeechProvider();
 
-  if (provider === 'openai' && isOpenAISpeechConfigured()) {
+  if (provider === 'openai' && await isOpenAISpeechConfigured()) {
     try {
       const generated = await synthesizeSpeechWithOpenAI({
         text: scene.voiceover,
@@ -741,7 +753,7 @@ async function createSceneAudioAsset(project: VideoProject, scene: VideoScene) {
     }
   }
 
-  if (provider === 'minimax' && isMiniMaxConfigured()) {
+  if (provider === 'minimax' && await isMiniMaxConfigured()) {
     try {
       const generated = await synthesizeSpeechWithMiniMax({
         text: scene.voiceover,

@@ -413,12 +413,12 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
     setBackgroundRequested(false);
     backgroundRequestedRef.current = false;
     backgroundProjectRef.current = null;
-      setMessage('已确认脚本，正在创建视频项目...');
+    setMessage('已确认脚本，正在创建视频项目和分镜...');
 
     try {
       const previewWindow = backgroundRequestedRef.current ? null : openPendingWindow();
       updateStep('parse', { status: 'done', progress: 100, detail: '已确认脚本内容。', href: pendingScript.href });
-      updateStep('project', { status: 'running', progress: 45, detail: '正在创建视频项目和分镜...' });
+      updateStep('project', { status: 'running', progress: 45, detail: '正在创建视频项目和 storyboard 分镜，通常需要 1-3 分钟。' });
       const createResponse = await fetch('/api/videos/create', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -430,16 +430,28 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
       const projectId = createPayload.project?.id;
       if (!projectId) throw new Error('视频项目创建成功但没有返回项目 ID。');
       setActiveProjectId(projectId);
-      updateStep('project', { status: 'done', progress: 100, detail: `视频项目已创建：${createPayload.project.title}`, href: `/videos/${projectId}` });
+      const queuedJobStatus = createPayload.job?.status as string | undefined;
+      updateStep('project', {
+        status: 'done',
+        progress: 100,
+        detail: autoRender
+          ? `视频项目已创建，渲染任务已${queuedJobStatus === 'running' ? '开始' : '进入队列'}：${createPayload.project.title}`
+          : `视频项目已创建：${createPayload.project.title}`,
+        href: `/videos/${projectId}`
+      });
 
       if (autoRender) {
-        updateStep('render', { status: 'running', progress: 20, detail: '正在提交制作任务...' });
-        const renderResponse = await fetch(`/api/videos/${projectId}/render`, { method: 'POST' });
-        const renderPayload = await renderResponse.json();
-        if (!renderResponse.ok) throw new Error(renderPayload.error || '提交制作任务失败');
         window.dispatchEvent(new CustomEvent('video-render-started', { detail: { projectId } }));
         ensureNotStopped();
-        updateStep('review', { status: 'running', progress: 30, href: `/videos/${projectId}`, detail: '项目已创建，生成完成后可在这里继续修改。' });
+        updateStep('render', {
+          status: 'running',
+          progress: queuedJobStatus === 'running' ? 28 : 16,
+          href: `/videos/${projectId}`,
+          detail: queuedJobStatus === 'running'
+            ? '制作任务已开始，正在持续同步渲染进度...'
+            : '制作任务已进入队列，正在等待渲染开始...'
+        });
+        updateStep('review', { status: 'running', progress: 30, href: `/videos/${projectId}`, detail: '项目已创建，生成完成后可在详情页继续修改。' });
         if (backgroundRequestedRef.current) {
           backgroundProjectRef.current = projectId;
           updateStep('render', { status: 'running', progress: 35, href: `/videos/${projectId}`, detail: '任务已进入后台队列，可以继续开始制作下一条视频。' });

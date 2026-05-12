@@ -11,6 +11,7 @@ import {
 } from 'remotion';
 import type { RemotionSceneInput, RemotionVideoInput } from './types';
 import { voiceoverVolume } from './audio';
+import { extractDisplayModules } from '../lib/display-labels';
 
 const FPS = 30;
 
@@ -200,7 +201,9 @@ function isUsefulDisplayItem(value: string) {
 }
 
 function sceneItems(scene: RemotionSceneInput, count = 5) {
+  const promptValues = extractDisplayModules(scene.visualPrompt || '', count, 12);
   const primaryValues = [
+    ...promptValues,
     ...(scene.cards || []),
     scene.emphasis || '',
     scene.headline || '',

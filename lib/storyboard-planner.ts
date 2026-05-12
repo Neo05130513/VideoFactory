@@ -1,4 +1,5 @@
 import { generateText, isTextGenerationConfigured } from './providers/text';
+import { extractDisplayModules, pickDisplayHeadline, pickDisplayLabel } from './display-labels';
 import { simpleId } from './storage';
 import type {
   Script,
@@ -263,25 +264,52 @@ function normalizeScene(projectId: string, scene: PlannedScene, index: number): 
       || voiceover,
     18
   );
-  const headline = cleanDisplayText(scene.headline, 18) || fallbackHeadline;
   const cardLimit = layout === 'mosaic'
     ? 6
     : layout === 'toolchain' || layout === 'timeline' || layout === 'process' || layout === 'checklist'
       ? 5
       : 4;
-  const cards = cleanStringArray(scene.cards, cardLimit, 12);
-  const keywords = cleanStringArray(scene.keywords, 6, 10);
-  const emphasis = cleanDisplayText(scene.emphasis, 12) || cleanDisplayText(keywords[0], 12) || undefined;
+  const promptCards = extractDisplayModules(scene.visualPrompt, cardLimit, 12);
+  const headline = pickDisplayHeadline([
+    scene.headline,
+    promptCards[0],
+    scene.subtitle,
+    scene.emphasis,
+    voiceover
+  ], 18) || pickDisplayLabel([
+    scene.headline,
+    promptCards[0],
+    scene.subtitle,
+    scene.emphasis,
+    voiceover
+  ], 18) || cleanDisplayText(scene.headline, 18) || fallbackHeadline;
+  const cards = (() => {
+    const rawCards = cleanStringArray(scene.cards, cardLimit + 2, 12)
+      .map((item) => pickDisplayLabel([item], 12) || item)
+      .filter(Boolean);
+    const semanticCards = (promptCards.length ? promptCards : [])
+      .map((item) => pickDisplayLabel([item], 12) || item)
+      .filter(Boolean);
+    const merged = Array.from(new Set([...semanticCards, ...rawCards]));
+    return merged.slice(0, cardLimit);
+  })();
+  const keywords = cleanStringArray(scene.keywords, 6, 10)
+    .map((item) => pickDisplayLabel([item], 10) || item)
+    .filter(Boolean);
+  const emphasis = pickDisplayLabel([scene.emphasis, cards.find((item) => item !== headline), keywords[0], promptCards[0]], 12) || undefined;
 
   let subtitle = cleanDisplayText(scene.subtitle, 26)
     || cleanDisplayText(scene.emphasis, 26)
+    || cleanDisplayText(promptCards[0], 26)
     || cleanDisplayText(cards[0], 26)
     || cleanDisplayText(keywords[0], 26);
   if (!subtitle) {
     subtitle = firstSentence(voiceover, 26);
   }
   if (subtitle === headline) {
-    subtitle = cleanDisplayText(cards[0], 26)
+    subtitle = cleanDisplayText(cards.find((item) => item !== headline), 26)
+      || cleanDisplayText(promptCards.find((item) => item !== headline), 26)
+      || cleanDisplayText(cards[0], 26)
       || cleanDisplayText(keywords[0], 26)
       || firstSentence(voiceover.slice(headline.length), 26)
       || subtitle;

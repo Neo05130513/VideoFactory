@@ -1,26 +1,27 @@
 import { generateTextWithOpenAI, isOpenAITextConfigured, type OpenAITextOptions } from './openai';
 import { generateTextWithMiniMax, isMiniMaxTextConfigured } from './minimax';
+import { getAiSettings } from '@/lib/ai-settings';
 
 type TextGenerationOptions = OpenAITextOptions;
 
 type TextGenerationProvider = 'openai' | 'minimax';
 
-function configuredProvider(): TextGenerationProvider {
-  const value = (process.env.TEXT_GENERATION_PROVIDER || process.env.AI_TEXT_PROVIDER || 'openai').toLowerCase();
-  return value === 'minimax' ? 'minimax' : 'openai';
+async function configuredProvider(): Promise<TextGenerationProvider> {
+  const settings = await getAiSettings();
+  return settings.textGenerationProvider === 'minimax' ? 'minimax' : 'openai';
 }
 
-export function getTextGenerationProviderName() {
-  return configuredProvider() === 'minimax' ? 'MiniMax' : 'OpenAI';
+export async function getTextGenerationProviderName() {
+  return (await configuredProvider()) === 'minimax' ? 'MiniMax' : 'OpenAI';
 }
 
 export async function isTextGenerationConfigured() {
-  if (configuredProvider() === 'minimax') return isMiniMaxTextConfigured();
+  if ((await configuredProvider()) === 'minimax') return isMiniMaxTextConfigured();
   return isOpenAITextConfigured();
 }
 
 export async function generateText(options: TextGenerationOptions) {
-  if (configuredProvider() === 'minimax') {
+  if ((await configuredProvider()) === 'minimax') {
     return generateTextWithMiniMax(options);
   }
   return generateTextWithOpenAI(options);

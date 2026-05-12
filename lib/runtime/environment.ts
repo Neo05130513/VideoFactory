@@ -2,6 +2,7 @@ import { access } from 'fs/promises';
 import path from 'path';
 import { constants } from 'fs';
 import { ensureDirectory } from '@/lib/storage';
+import { getAiSettings } from '@/lib/ai-settings';
 import { commandExists, getExecutablePath } from './commands';
 import { generatedRelativePath, getAppRoot, getDataRoot, resolveAppPath, resolveDataPath } from './paths';
 
@@ -32,7 +33,8 @@ export async function getRuntimeStatus() {
   const dataRoot = getDataRoot();
   const generatedRoot = path.dirname(resolveAppPath(generatedRelativePath('.probe')));
   const importsRoot = resolveDataPath('imports');
-  const [ffmpegInstalled, dataDirectoryWritable, generatedDirectoryWritable, importsDirectoryWritable, remotionDependenciesInstalled] = await Promise.all([
+  const [settings, ffmpegInstalled, dataDirectoryWritable, generatedDirectoryWritable, importsDirectoryWritable, remotionDependenciesInstalled] = await Promise.all([
+    getAiSettings(),
     commandExists('ffmpeg', 'FFMPEG_PATH'),
     canWriteDirectory(dataRoot),
     canWriteDirectory(generatedRoot),
@@ -41,8 +43,8 @@ export async function getRuntimeStatus() {
   ]);
 
   return {
-    openaiConfigured: Boolean(process.env.OPENAI_API_KEY),
-    minimaxConfigured: Boolean(process.env.MINIMAX_API_KEY),
+    openaiConfigured: Boolean(settings.openaiApiKey),
+    minimaxConfigured: Boolean(settings.minimaxApiKey),
     ffmpegInstalled,
     ffmpegCommand: getExecutablePath('ffmpeg', 'FFMPEG_PATH'),
     remotionDependenciesInstalled,

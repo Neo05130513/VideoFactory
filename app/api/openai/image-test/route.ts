@@ -5,7 +5,7 @@ import { simpleId } from '@/lib/storage';
 
 export async function POST(request: Request) {
   try {
-    if (!isOpenAIImageConfigured()) {
+    if (!await isOpenAIImageConfigured()) {
       return NextResponse.json({ error: 'OPENAI_API_KEY is not configured' }, { status: 400 });
     }
 

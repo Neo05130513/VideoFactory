@@ -39,11 +39,11 @@ function parseEnvFile(content) {
   return values;
 }
 
-function loadEnvFile(filePath) {
+function loadEnvFile(filePath, options = {}) {
   if (!fs.existsSync(filePath)) return;
   const values = parseEnvFile(fs.readFileSync(filePath, 'utf8'));
   for (const [key, value] of Object.entries(values)) {
-    if (!process.env[key]) process.env[key] = value;
+    if (options.override || !process.env[key]) process.env[key] = value;
   }
 }
 
@@ -74,7 +74,11 @@ function configureRuntime() {
   process.env.VIDEO_FACTORY_LOG_FILE = logFilePath;
 
   loadEnvFile(path.join(appRoot, '.env.local'));
-  loadEnvFile(path.join(dataRoot, '.env.local'));
+  loadEnvFile(path.join(process.cwd(), '.env.local'), { override: true });
+  if (app.isPackaged) {
+    loadEnvFile(path.join(path.dirname(process.execPath), '.env.local'), { override: true });
+  }
+  loadEnvFile(path.join(dataRoot, '.env.local'), { override: true });
   log(`Runtime configured appRoot=${appRoot} dataRoot=${dataRoot} generatedRoot=${generatedRoot}`);
 }
 

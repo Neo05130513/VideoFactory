@@ -1,11 +1,10 @@
 import path from 'path';
 import { writeFile } from 'fs/promises';
 import { EnvHttpProxyAgent, fetch as undiciFetch } from 'undici';
+import { getAiSettings, type AiServiceSettings } from '@/lib/ai-settings';
 import { ensureDirectory } from '@/lib/storage';
 import { publicPathFromRelative, resolveAppPath } from '@/lib/runtime/paths';
 
-const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || 'https://api.openai.com';
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_PROXY_AGENT = process.env.HTTP_PROXY || process.env.HTTPS_PROXY || process.env.ALL_PROXY
   ? new EnvHttpProxyAgent()
   : undefined;
@@ -125,10 +124,10 @@ function buildOpenAIUrl(baseUrl: string, endpoint: string) {
   return `${normalizedBaseUrl}${normalizedEndpoint}`;
 }
 
-function getOpenAIBaseUrl(kind: 'text' | 'image' | 'speech') {
-  if (kind === 'text') return process.env.OPENAI_TEXT_BASE_URL || process.env.OPENAI_BASE_URL || OPENAI_BASE_URL;
-  if (kind === 'image') return process.env.OPENAI_IMAGE_BASE_URL || process.env.OPENAI_BASE_URL || OPENAI_BASE_URL;
-  return process.env.OPENAI_TTS_BASE_URL || process.env.OPENAI_SPEECH_BASE_URL || process.env.OPENAI_BASE_URL || OPENAI_BASE_URL;
+function getOpenAIBaseUrl(settings: AiServiceSettings, kind: 'text' | 'image' | 'speech') {
+  if (kind === 'text') return settings.openaiTextBaseUrl || settings.openaiBaseUrl;
+  if (kind === 'image') return settings.openaiImageBaseUrl || settings.openaiBaseUrl;
+  return settings.openaiTtsBaseUrl || settings.openaiBaseUrl;
 }
 
 function getAbsolutePath(relativePath: string) {
@@ -152,8 +151,8 @@ async function downloadToFile(url: string, outputRelativePath: string) {
   await writeBinaryFile(outputRelativePath, Buffer.from(arrayBuffer));
 }
 
-function inferOpenAIImageSize(width?: number, height?: number) {
-  if (process.env.OPENAI_IMAGE_SIZE) return process.env.OPENAI_IMAGE_SIZE;
+function inferOpenAIImageSize(settings: AiServiceSettings, width?: number, height?: number) {
+  if (settings.openaiImageSize) return settings.openaiImageSize;
   const w = width || 1080;
   const h = height || 1920;
   if (w === h) return '1024x1024';
@@ -227,10 +226,10 @@ function pullNextSseEvent(buffer: string) {
   };
 }
 
-function buildRequestBody(options: OpenAITextOptions) {
-  const reasoningEffort = process.env.OPENAI_REASONING_EFFORT || 'none';
+function buildRequestBody(options: OpenAITextOptions, settings: AiServiceSettings) {
+  const reasoningEffort = settings.openaiReasoningEffort || 'none';
   const body: Record<string, unknown> = {
-    model: options.model || process.env.OPENAI_TEXT_MODEL || 'gpt-5.4',
+    model: options.model || settings.openaiTextModel,
     instructions: options.systemPrompt,
     input: options.userPrompt,
     max_output_tokens: options.maxTokens || 4096,
@@ -247,18 +246,20 @@ function buildRequestBody(options: OpenAITextOptions) {
   return body;
 }
 
-export function isOpenAITextConfigured() {
-  return Boolean(OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+export async function isOpenAITextConfigured() {
+  const settings = await getAiSettings();
+  return Boolean(settings.openaiApiKey);
 }
 
 export async function generateTextWithOpenAI(options: OpenAITextOptions) {
-  const apiKey = process.env.OPENAI_API_KEY || OPENAI_API_KEY;
+  const settings = await getAiSettings();
+  const apiKey = settings.openaiApiKey;
   if (!apiKey) return null;
 
   const endpoint = '/v1/responses';
-  const baseUrl = getOpenAIBaseUrl('text');
+  const baseUrl = getOpenAIBaseUrl(settings, 'text');
   const requestUrl = buildOpenAIUrl(baseUrl, endpoint);
-  const requestBody = buildRequestBody(options);
+  const requestBody = buildRequestBody(options, settings);
   const timeoutMs = options.timeoutMs ?? Number(process.env.OPENAI_TEXT_TIMEOUT_MS || OPENAI_REQUEST_TIMEOUT_MS);
   const maxRetries = Math.max(0, options.maxRetries ?? Number(process.env.OPENAI_TEXT_MAX_RETRIES || 2));
   const retryDelayMs = Math.max(0, options.retryDelayMs ?? Number(process.env.OPENAI_TEXT_RETRY_DELAY_MS || 2500));
@@ -492,27 +493,30 @@ export async function generateTextWithOpenAI(options: OpenAITextOptions) {
 
   throw lastError || new Error(`OpenAI text generation failed after ${maxRetries + 1} attempts at ${endpoint}`);
 }
-export function isOpenAIImageConfigured() {
-  return Boolean(OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+export async function isOpenAIImageConfigured() {
+  const settings = await getAiSettings();
+  return Boolean(settings.openaiApiKey);
 }
 
-export function isOpenAISpeechConfigured() {
-  return Boolean(OPENAI_API_KEY || process.env.OPENAI_API_KEY);
+export async function isOpenAISpeechConfigured() {
+  const settings = await getAiSettings();
+  return Boolean(settings.openaiApiKey);
 }
 
 export async function generateImageWithOpenAI(options: OpenAIImageOptions) {
-  const apiKey = process.env.OPENAI_API_KEY || OPENAI_API_KEY;
+  const settings = await getAiSettings();
+  const apiKey = settings.openaiApiKey;
   if (!apiKey) return null;
 
   const endpoint = '/v1/images/generations';
-  const baseUrl = getOpenAIBaseUrl('image');
+  const baseUrl = getOpenAIBaseUrl(settings, 'image');
   const requestUrl = buildOpenAIUrl(baseUrl, endpoint);
   const requestBody: Record<string, unknown> = {
-    model: options.model || process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1',
+    model: options.model || settings.openaiImageModel,
     prompt: options.prompt,
-    size: options.size || inferOpenAIImageSize(options.width, options.height)
+    size: options.size || inferOpenAIImageSize(settings, options.width, options.height)
   };
-  const quality = options.quality || process.env.OPENAI_IMAGE_QUALITY;
+  const quality = options.quality || settings.openaiImageQuality;
   if (quality) requestBody.quality = quality;
 
   const response = await fetchWithOpenAIDiagnostics(
@@ -558,15 +562,16 @@ export async function generateImageWithOpenAI(options: OpenAIImageOptions) {
 }
 
 export async function synthesizeSpeechWithOpenAI(options: OpenAISpeechOptions) {
-  const apiKey = process.env.OPENAI_API_KEY || OPENAI_API_KEY;
+  const settings = await getAiSettings();
+  const apiKey = settings.openaiApiKey;
   if (!apiKey) return null;
 
   const endpoint = '/v1/audio/speech';
-  const baseUrl = getOpenAIBaseUrl('speech');
+  const baseUrl = getOpenAIBaseUrl(settings, 'speech');
   const requestUrl = buildOpenAIUrl(baseUrl, endpoint);
   const requestBody: Record<string, unknown> = {
-    model: options.model || process.env.OPENAI_TTS_MODEL || 'gpt-4o-mini-tts',
-    voice: options.voice || process.env.OPENAI_TTS_VOICE || 'alloy',
+    model: options.model || settings.openaiTtsModel,
+    voice: options.voice || settings.openaiTtsVoice,
     input: options.text,
     response_format: options.format || 'mp3'
   };

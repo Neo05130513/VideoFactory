@@ -5,7 +5,7 @@ import { simpleId } from '@/lib/storage';
 
 export async function POST(request: Request) {
   try {
-    if (!isMiniMaxConfigured()) {
+    if (!await isMiniMaxConfigured()) {
       return NextResponse.json({ error: 'MINIMAX_API_KEY is not configured' }, { status: 400 });
     }
 

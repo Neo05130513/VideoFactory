@@ -1,5 +1,158 @@
 [
   {
+    "id": "storyboard_review_1778596585389_plmof4",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 64,
+    "issues": [
+      "AI storyboard planner returned no scenes; used local fallback."
+    ],
+    "reasons": [
+      "AI planner returned an empty storyboard."
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 30,
+    "totalDurationSec": 263.1,
+    "createdAt": "2026-05-12T14:36:25.389Z"
+  },
+  {
+    "id": "storyboard_review_1778596466232_dl8lb8",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 64,
+    "issues": [
+      "AI storyboard planner returned no scenes; used local fallback."
+    ],
+    "reasons": [
+      "AI planner returned an empty storyboard."
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 30,
+    "totalDurationSec": 263.1,
+    "createdAt": "2026-05-12T14:34:26.232Z"
+  },
+  {
+    "id": "storyboard_review_1778596347585_megkk4",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 64,
+    "issues": [
+      "AI storyboard planner returned no scenes; used local fallback."
+    ],
+    "reasons": [
+      "AI planner returned an empty storyboard."
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 30,
+    "totalDurationSec": 263.1,
+    "createdAt": "2026-05-12T14:32:27.585Z"
+  },
+  {
+    "id": "storyboard_review_1778596136271_1qzzgx",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 64,
+    "issues": [
+      "AI storyboard planner returned no scenes; used local fallback."
+    ],
+    "reasons": [
+      "AI planner returned an empty storyboard."
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 30,
+    "totalDurationSec": 263.1,
+    "createdAt": "2026-05-12T14:28:56.271Z"
+  },
+  {
+    "id": "storyboard_review_1778595971442_396n4w",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 64,
+    "issues": [
+      "AI storyboard planner returned no scenes; used local fallback."
+    ],
+    "reasons": [
+      "AI planner returned an empty storyboard."
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 30,
+    "totalDurationSec": 263.1,
+    "createdAt": "2026-05-12T14:26:11.442Z"
+  },
+  {
+    "id": "storyboard_review_1778595739486_cfwfh1",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 64,
+    "issues": [
+      "AI storyboard planner returned no scenes; used local fallback."
+    ],
+    "reasons": [
+      "AI planner returned an empty storyboard."
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 30,
+    "totalDurationSec": 262.5,
+    "createdAt": "2026-05-12T14:22:19.486Z"
+  },
+  {
+    "id": "storyboard_review_1778594964639_8ab6fe",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 64,
+    "issues": [
+      "AI storyboard planner returned no scenes; used local fallback."
+    ],
+    "reasons": [
+      "AI planner returned an empty storyboard."
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 30,
+    "totalDurationSec": 261,
+    "createdAt": "2026-05-12T14:09:24.639Z"
+  },
+  {
+    "id": "storyboard_review_1778594794207_uu25iy",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 64,
+    "issues": [
+      "AI storyboard planner returned no scenes; used local fallback."
+    ],
+    "reasons": [
+      "AI planner returned an empty storyboard."
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 30,
+    "totalDurationSec": 261,
+    "createdAt": "2026-05-12T14:06:34.207Z"
+  },
+  {
+    "id": "storyboard_review_1778591846108_5g39o6",
+    "projectId": "video_project_1778431308725_5j08g5",
+    "source": "rule-fallback",
+    "score": 64,
+    "issues": [
+      "AI storyboard planner returned no scenes; used local fallback."
+    ],
+    "reasons": [
+      "AI planner returned an empty storyboard."
+    ],
+    "retried": false,
+    "usedFallback": true,
+    "sceneCount": 30,
+    "totalDurationSec": 261,
+    "createdAt": "2026-05-12T13:17:26.108Z"
+  },
+  {
     "id": "storyboard_review_1778512199711_bcthb6",
     "projectId": "video_project_1778431308725_5j08g5",
     "source": "rule-fallback",
