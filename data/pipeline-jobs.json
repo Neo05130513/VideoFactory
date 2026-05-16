@@ -1,5 +1,35 @@
 [
   {
+    "id": "pipeline_job_1778748848723_hg2fwr",
+    "ownerUserId": "user_admin_demo",
+    "tutorialId": "tutorial_1778748848243_8b4c7g",
+    "status": "completed",
+    "stage": "completed",
+    "progress": 100,
+    "detail": "已完成，生成 1 条脚本。",
+    "createdAt": "2026-05-14T08:54:08.723Z",
+    "updatedAt": "2026-05-14T08:55:37.119Z",
+    "startedAt": "2026-05-14T08:54:08.741Z",
+    "previewText": "老板天天盯群，不是负责，是流程坏了｜员工一遇到客户问题就找老板，往不是人不行，而是价格、流程、售后这些经验，从来没有变成公司规则",
+    "totalTopics": 1,
+    "result": {
+      "tutorialId": "tutorial_1778748848243_8b4c7g",
+      "tutorialTitle": "Day 01：老板天天盯群，不是负责，是流程坏了",
+      "topicCount": 1,
+      "scriptCount": 1,
+      "scripts": [
+        {
+          "id": "script_1778748937093_lfvw5o",
+          "title": "老板天天盯群，不是负责，是流程坏了",
+          "hook": "员工一遇到客户问题就找老板，往不是人不行，而是价格、流程、售后这些经验，从来没有变成公司规则"
+        }
+      ],
+      "firstScriptId": "script_1778748937093_lfvw5o",
+      "firstScriptTitle": "老板天天盯群，不是负责，是流程坏了"
+    },
+    "completedAt": "2026-05-14T08:55:37.119Z"
+  },
+  {
     "id": "pipeline_job_1778430280871_j2jf25",
     "tutorialId": "tutorial_1778428884317_k0e0lf",
     "status": "completed",

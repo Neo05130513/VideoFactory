@@ -1,5 +1,71 @@
 [
   {
+    "id": "audit_1778751821043_49gv4s",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.storyboard.regenerate",
+    "targetType": "video_project",
+    "targetId": "video_project_1778748956421_pg7yz1",
+    "summary": "重生成分镜：老板天天盯群，不是负责，是流程坏了",
+    "createdAt": "2026-05-14T09:43:41.043Z"
+  },
+  {
+    "id": "audit_1778749144510_gonkgj",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "video_project.create",
+    "targetType": "video_project",
+    "targetId": "video_project_1778748956421_pg7yz1",
+    "summary": "从脚本创建视频项目：老板天天盯群，不是负责，是流程坏了",
+    "createdAt": "2026-05-14T08:59:04.510Z"
+  },
+  {
+    "id": "audit_1778748990522_knrov3",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "script.delete",
+    "targetType": "script",
+    "targetId": "script_1778430344400_8679vi",
+    "summary": "删除脚本：3种模式，让IP传递你的品牌理念",
+    "createdAt": "2026-05-14T08:56:30.522Z"
+  },
+  {
+    "id": "audit_1778748987852_jak0j9",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "script.delete",
+    "targetType": "script",
+    "targetId": "script_1778507044850_44bnz8",
+    "summary": "删除脚本：3种模式，让IP传递你的品牌理念",
+    "createdAt": "2026-05-14T08:56:27.852Z"
+  },
+  {
+    "id": "audit_1778748848250_h63pz0",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "tutorial.import.upload",
+    "targetType": "tutorial",
+    "targetId": "tutorial_1778748848243_8b4c7g",
+    "summary": "上传导入文档：粘贴文本",
+    "createdAt": "2026-05-14T08:54:08.250Z"
+  },
+  {
+    "id": "audit_1778748845347_xmg5lc",
+    "actorId": "user_admin_demo",
+    "actorName": "Admin Demo",
+    "actorRole": "admin",
+    "action": "voice.profile.default",
+    "targetType": "system",
+    "targetId": "voice_profile_1776852032356_c01r5d",
+    "summary": "设置默认音色：Neo音色",
+    "createdAt": "2026-05-14T08:54:05.347Z"
+  },
+  {
     "id": "audit_1778494029183_kh1hwl",
     "actorId": "user_admin_demo",
     "actorName": "Admin Demo",

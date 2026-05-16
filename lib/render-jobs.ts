@@ -2,6 +2,7 @@ import { nowIso, readJsonFile, simpleId, writeJsonFile } from './storage';
 import { renderVideoProjectWithRemotion } from './remotion-renderer';
 import { getPerformanceSettings } from './performance/settings';
 import { captureReservation, refundReservation } from './credits';
+import { regenerateStoryboard } from './videos';
 import type { RenderJob, VideoProject } from './types';
 
 const DEFAULT_MAX_ATTEMPTS = 2;
@@ -210,8 +211,17 @@ export async function processRenderQueue() {
       return latest;
     }
     const failedAt = nowIso();
-    const message = error instanceof Error ? error.message : 'Render job failed';
+    let message = error instanceof Error ? error.message : 'Render job failed';
     const shouldRetry = runningJob.attempt < runningJob.maxAttempts;
+    if (shouldRetry && message.startsWith('STORYBOARD_DISPLAY_QUALITY_FAILED')) {
+      try {
+        await regenerateStoryboard(nextJob.projectId);
+        message = `${message}; storyboard regenerated before retry`;
+      } catch (regenerateError) {
+        const regenerateMessage = regenerateError instanceof Error ? regenerateError.message : String(regenerateError);
+        message = `${message}; storyboard regenerate failed: ${regenerateMessage}`;
+      }
+    }
     if (!shouldRetry) {
       await refundReservation(runningJob.creditReservationId, 'Render failed');
     }

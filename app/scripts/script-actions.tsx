@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { formatApiClientError, readApiJson } from '../_components/api-client';
 import { navigatePendingWindow, openPendingWindow } from '../_components/open-new-window';
 
 type AspectRatio = '9:16' | '16:9';
@@ -22,15 +23,12 @@ export function ScriptActions({ scriptId, tutorialId, hasProject, projectIds = [
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptId, aspectRatio, template })
       });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.error || '创建视频项目失败');
-      }
-      setMessage('视频项目创建完成，已在新窗口打开。');
+      const payload = await readApiJson<{ project: { id: string } }>(response, '创建视频项目失败');
+      setMessage('视频项目创建完成，正在打开视频详情。');
       navigatePendingWindow(nextWindow, `/videos/${payload.project.id}`);
     } catch (error) {
       nextWindow?.close();
-      setMessage(error instanceof Error ? error.message : '创建视频项目失败');
+      setMessage(formatApiClientError(error, '创建视频项目失败'));
     } finally {
       setBusy(null);
     }
@@ -46,15 +44,12 @@ export function ScriptActions({ scriptId, tutorialId, hasProject, projectIds = [
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptId })
       });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.error || '复制脚本失败');
-      }
-      setMessage('脚本版本复制成功，已在新窗口打开。');
+      const payload = await readApiJson<{ script: { id: string } }>(response, '复制脚本失败');
+      setMessage('脚本版本复制成功，正在打开脚本详情。');
       navigatePendingWindow(nextWindow, `/scripts/${payload.script.id}`);
     } catch (error) {
       nextWindow?.close();
-      setMessage(error instanceof Error ? error.message : '复制脚本失败');
+      setMessage(formatApiClientError(error, '复制脚本失败'));
     } finally {
       setBusy(null);
     }
@@ -70,15 +65,12 @@ export function ScriptActions({ scriptId, tutorialId, hasProject, projectIds = [
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptId })
       });
-      const payload = await response.json();
-      if (!response.ok) {
-        throw new Error(payload.error || '按脚本重建项目失败');
-      }
-      setMessage('项目已按当前脚本版本重建分镜，已在新窗口打开。');
+      const payload = await readApiJson<{ project: { id: string } }>(response, '按脚本重建项目失败');
+      setMessage('项目已按当前脚本版本重建分镜，正在打开视频详情。');
       navigatePendingWindow(nextWindow, `/videos/${payload.project.id}`);
     } catch (error) {
       nextWindow?.close();
-      setMessage(error instanceof Error ? error.message : '按脚本重建项目失败');
+      setMessage(formatApiClientError(error, '按脚本重建项目失败'));
     } finally {
       setBusy(null);
     }
@@ -103,10 +95,10 @@ export function ScriptActions({ scriptId, tutorialId, hasProject, projectIds = [
         <button onClick={duplicateScript} disabled={busy !== null} style={secondaryButtonStyle(busy === 'duplicate')}>
           {busy === 'duplicate' ? '复制中...' : '复制为新版本'}
         </button>
-        <a href={`/api/scripts/${scriptId}/export`} target="_blank" rel="noreferrer" style={linkStyle('#fbbf24')}>导出脚本 TXT ↓</a>
-        <a href={`/scripts/${scriptId}`} target="_blank" rel="noreferrer" style={linkStyle('#c4b5fd')}>打开脚本详情 →</a>
-        <a href={`/tutorials/${tutorialId}`} target="_blank" rel="noreferrer" style={linkStyle('#93c5fd')}>查看教程详情 →</a>
-        <a href="/videos" target="_blank" rel="noreferrer" style={linkStyle('#67e8f9')}>去视频工厂 →</a>
+        <a href={`/api/scripts/${scriptId}/export`} style={linkStyle('#fbbf24')}>导出脚本 TXT ↓</a>
+        <a href={`/scripts/${scriptId}`} style={linkStyle('#c4b5fd')}>打开脚本详情 →</a>
+        <a href={`/tutorials/${tutorialId}`} style={linkStyle('#93c5fd')}>查看教程详情 →</a>
+        <a href="/videos" style={linkStyle('#67e8f9')}>去视频工厂 →</a>
       </div>
       {projectIds.length ? <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>{projectIds.slice(0, 3).map((projectId) => <button key={projectId} onClick={() => rebuildProjectFromScript(projectId)} disabled={busy !== null} style={secondaryButtonStyle(busy === `rebuild:${projectId}`)}>{busy === `rebuild:${projectId}` ? '重建中...' : `按当前版本重建项目 ${projectId.slice(-4)}`}</button>)}</div> : null}
       {message ? <div style={{ color: '#93c5fd', lineHeight: 1.7 }}>{message}</div> : null}

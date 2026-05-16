@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { listVoiceProfiles } from '@/lib/voice-profiles';
 import { getVideoRuntimeStatus } from '@/lib/queries';
@@ -33,6 +34,8 @@ export async function StudioShell({
     getCurrentUser(),
     getVideoRuntimeStatus().catch(() => null)
   ]);
+  if (!user) redirect('/login');
+
   const userVoices = user ? (await listVoiceProfiles()).filter((profile) => profile.userId === user.id) : [];
   const defaultVoice = userVoices.find((profile) => profile.isDefault) || userVoices.find((profile) => profile.status === 'ready') || null;
   const runtimeReady = Boolean(runtime?.dataDirectoryWritable && runtime?.remotionDependenciesInstalled);

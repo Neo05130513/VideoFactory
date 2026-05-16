@@ -1,5 +1,21 @@
 [
   {
+    "id": "video_asset_1778771031002_06akho",
+    "projectId": "video_project_1778748956421_pg7yz1",
+    "sceneId": "video_scene_1778757578066_3vtzes",
+    "assetType": "video",
+    "path": "/generated/remotion/video_project_1778748956421_pg7yz1/output.mp4",
+    "status": "ready"
+  },
+  {
+    "id": "video_asset_1778771031002_ffw74z",
+    "projectId": "video_project_1778748956421_pg7yz1",
+    "sceneId": "video_scene_1778757578066_3vtzes",
+    "assetType": "subtitle",
+    "path": "/generated/remotion/video_project_1778748956421_pg7yz1/subtitles.srt",
+    "status": "ready"
+  },
+  {
     "id": "video_asset_1778597059701_dtgf90",
     "projectId": "video_project_1778431308725_5j08g5",
     "sceneId": "video_scene_1778596585373_eryry3",

@@ -14,6 +14,7 @@ import { getDefaultVoiceProfile } from './voice-profiles';
 import { getVoiceSettings } from './voice-settings';
 import { commandExists, getExecutablePath } from './runtime/commands';
 import { generatedRelativePath, publicPathFromRelative, resolveAppPath } from './runtime/paths';
+import { enhanceSceneDisplayLayer as enhanceSceneDisplayLayerShared, repairStoryboardDisplayLayer, summarizeStoryboardDisplayIssues } from './storyboard-display';
 import type { Script, Topic, Tutorial, VideoAsset, VideoProject, VideoScene } from './types';
 import type { RemotionVideoInput } from '@/remotion/types';
 
@@ -601,7 +602,7 @@ function toRemotionInput(project: VideoProject, scenes: VideoScene[], audioBySce
       audioPath: projectAudio?.publicPath
     },
     scenes: scenes.map((rawScene) => {
-      const scene = enhanceSceneDisplayLayer(rawScene);
+      const scene = enhanceSceneDisplayLayerShared(rawScene);
       const audio = audioBySceneId.get(scene.id);
       const durationSec = audio ? Math.max(scene.durationSec, audio.durationSec + getAudioTailPaddingSec()) : scene.durationSec;
       const cueSource = rawScene.voiceover || rawScene.subtitle || scene.voiceover || scene.subtitle;
@@ -855,6 +856,24 @@ export async function renderVideoProjectWithRemotion(projectId: string, options:
 
   if (!projectScenes.length) throw new Error('No storyboard scenes found');
 
+  const displayCheck = repairStoryboardDisplayLayer(projectScenes);
+  if (!displayCheck.passed) {
+    throw new Error(`STORYBOARD_DISPLAY_QUALITY_FAILED: ${summarizeStoryboardDisplayIssues(displayCheck.issues)}`);
+  }
+  const checkedScenes = displayCheck.scenes;
+  if (displayCheck.repaired) {
+    const repairedById = new Map(checkedScenes.map((scene) => [scene.id, scene]));
+    state.scenes = state.scenes.map((scene) => scene.projectId === projectId
+      ? repairedById.get(scene.id) || scene
+      : scene);
+    await writeJsonFile('data/video-scenes.json', state.scenes);
+    await options.onProgress?.({
+      stage: 'storyboard-sanitized',
+      progress: 22,
+      detail: 'Storyboard display layer auto-repaired before render.'
+    });
+  }
+
   const renderingProject: VideoProject = {
     ...project,
     status: 'rendering',
@@ -870,11 +889,11 @@ export async function renderVideoProjectWithRemotion(projectId: string, options:
   try {
     const preparedAudio = await prepareSceneAudio({
       projectId,
-      scenes: projectScenes,
+      scenes: checkedScenes,
       existingAssets: state.assets,
       onProgress: options.onProgress
     });
-    const renderScenes = preparedAudio.scenes.map((scene) => enhanceSceneDisplayLayer(scene));
+    const renderScenes = preparedAudio.scenes.map((scene) => enhanceSceneDisplayLayerShared(scene));
     const projectAudio = await buildProjectVoiceoverTrack({
       projectId,
       scenes: renderScenes,

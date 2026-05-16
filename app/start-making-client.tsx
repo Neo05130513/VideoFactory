@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { formatApiClientError, readApiJson } from './_components/api-client';
 import { navigatePendingWindow, openPendingWindow } from './_components/open-new-window';
 import { linkButtonStyle, newWindowLinkProps, primaryButtonStyle, secondaryButtonStyle, StatusBadge, subtlePanelStyle } from './_components/studio-ui';
 import { estimateGenerationFromText } from '@/lib/performance/estimate';
@@ -363,8 +364,7 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
         form.append('text', pastedText.trim());
       }
       const importResponse = await fetch('/api/import/upload', { method: 'POST', body: form });
-      const importPayload = await importResponse.json();
-      if (!importResponse.ok) throw new Error(importPayload.error || '导入文档失败');
+      const importPayload = await readApiJson<{ created?: Array<{ id?: string; tutorialId?: string; title?: string }>; duplicates?: Array<{ id?: string; tutorialId?: string; title?: string }> }>(importResponse, '导入文档失败');
       ensureNotStopped();
 
       const tutorial = importPayload.created?.[0] || importPayload.duplicates?.[0];
@@ -385,8 +385,7 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tutorialId })
       });
-      const pipelinePayload = await pipelineResponse.json();
-      if (!pipelineResponse.ok) throw new Error(pipelinePayload.error || '生成脚本失败');
+      const pipelinePayload = await readApiJson<{ job?: PipelineJobView }>(pipelineResponse, '生成脚本失败');
       const job = pipelinePayload.job as PipelineJobView | undefined;
       if (!job?.id) throw new Error('脚本任务已创建，但没有返回任务 ID。');
       setActivePipelineJobId(job.id);
@@ -394,7 +393,7 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
       setMessage('脚本生成任务已开始，正在持续同步进度...');
       keepBusy = true;
     } catch (error) {
-      const text = error instanceof Error ? error.message : '生成视频失败';
+      const text = formatApiClientError(error, '生成视频失败');
       setMessage(text);
       setSteps((current) => current.map((step) => step.status === 'running' ? { ...step, status: 'failed', progress: 100, detail: text } : step));
     } finally {
@@ -424,19 +423,19 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptId: pendingScript.scriptId, aspectRatio })
       });
-      const createPayload = await createResponse.json();
-      if (!createResponse.ok) throw new Error(createPayload.error || '创建视频项目失败');
+      const createPayload = await readApiJson<{ project?: { id?: string; title?: string }; job?: { status?: string } }>(createResponse, '创建视频项目失败');
       ensureNotStopped();
       const projectId = createPayload.project?.id;
       if (!projectId) throw new Error('视频项目创建成功但没有返回项目 ID。');
+      const projectTitle = createPayload.project?.title || pendingScript.title;
       setActiveProjectId(projectId);
       const queuedJobStatus = createPayload.job?.status as string | undefined;
       updateStep('project', {
         status: 'done',
         progress: 100,
         detail: autoRender
-          ? `视频项目已创建，渲染任务已${queuedJobStatus === 'running' ? '开始' : '进入队列'}：${createPayload.project.title}`
-          : `视频项目已创建：${createPayload.project.title}`,
+          ? `视频项目已创建，渲染任务已${queuedJobStatus === 'running' ? '开始' : '进入队列'}：${projectTitle}`
+          : `视频项目已创建：${projectTitle}`,
         href: `/videos/${projectId}`
       });
 
@@ -480,7 +479,7 @@ export function StartMakingClient({ initialProfiles, performanceSettings }: { in
         setMessage('当前视频已转入后台运行。你现在可以开始制作下一条。');
       }
     } catch (error) {
-      const text = compactError(error instanceof Error ? error : new Error('创建视频失败'));
+      const text = compactError(formatApiClientError(error, '创建视频失败'));
       setMessage(text);
       setSteps((current) => current.map((step) => step.status === 'running' ? { ...step, status: 'failed', progress: 100, detail: text } : step));
     } finally {

@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { formatApiClientError, readApiJson } from '../_components/api-client';
 import { EmptyGuide, Panel, SectionTitle, StatusBadge, subtlePanelStyle } from '../_components/studio-ui';
 import type { Script, Tutorial, VideoProject } from '@/lib/types';
 
@@ -13,11 +14,12 @@ type Props = {
 
 export function ScriptsPageClient({ initialScripts, tutorials, projects }: Props) {
   const [scripts, setScripts] = useState(initialScripts);
+  const [projectList, setProjectList] = useState(projects);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [message, setMessage] = useState('');
 
-  const pendingScripts = useMemo(() => scripts.filter((script) => !projects.some((project) => project.scriptId === script.id)), [projects, scripts]);
+  const pendingScripts = useMemo(() => scripts.filter((script) => !projectList.some((project) => project.scriptId === script.id)), [projectList, scripts]);
   const latestScripts = useMemo(
     () => [...scripts].sort((a, b) => Number(new Date(b.createdAt)) - Number(new Date(a.createdAt))).slice(0, 80),
     [scripts]
@@ -52,6 +54,31 @@ export function ScriptsPageClient({ initialScripts, tutorials, projects }: Props
       setMessage(`已删除脚本：${title}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '删除脚本失败');
+    } finally {
+      setBusyKey(null);
+    }
+  }
+
+  async function createVideoProject(scriptId: string, title: string) {
+    setBusyKey(`create:${scriptId}`);
+    setMessage(`已确认脚本《${title}》，正在创建视频项目并提交生成...`);
+    try {
+      const response = await fetch('/api/videos/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scriptId,
+          aspectRatio: '9:16',
+          template: 'ai-explainer-short-v1'
+        })
+      });
+      const payload = await readApiJson<{ project: VideoProject }>(response, '创建视频项目失败');
+      setProjectList((current) => [payload.project, ...current.filter((item) => item.id !== payload.project.id)]);
+      setSelectedIds((current) => current.filter((id) => id !== scriptId));
+      setMessage(`视频项目已创建：${payload.project.title}。正在打开视频详情...`);
+      window.location.href = `/videos/${payload.project.id}`;
+    } catch (error) {
+      setMessage(formatApiClientError(error, '创建视频项目失败'));
     } finally {
       setBusyKey(null);
     }
@@ -126,7 +153,10 @@ export function ScriptsPageClient({ initialScripts, tutorials, projects }: Props
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                       <StatusBadge text="待生成" tone="warning" />
-                      <Link href={`/scripts/${script.id}`} target="_blank" rel="noreferrer" style={linkStyle('#7dd3fc')}>打开</Link>
+                      <button onClick={() => void createVideoProject(script.id, script.title)} disabled={busyKey !== null} style={createButtonStyle(busyKey === `create:${script.id}`)}>
+                        {busyKey === `create:${script.id}` ? '生成中...' : '生成视频'}
+                      </button>
+                      <Link href={`/scripts/${script.id}`} style={linkStyle('#7dd3fc')}>打开</Link>
                       <button onClick={() => void deleteOne(script.id, script.title)} disabled={busyKey !== null} style={dangerButtonStyle(deleting)}>
                         {deleting ? '删除中...' : '删除'}
                       </button>
@@ -147,13 +177,11 @@ export function ScriptsPageClient({ initialScripts, tutorials, projects }: Props
           <div style={{ display: 'grid', gap: 10 }}>
             {latestScripts.map((script) => {
               const tutorial = tutorials.find((item) => item.id === script.tutorialId);
-              const relatedProjects = projects.filter((project) => project.scriptId === script.id);
+              const relatedProjects = projectList.filter((project) => project.scriptId === script.id);
               return (
                 <Link
                   key={script.id}
                   href={`/scripts/${script.id}`}
-                  target="_blank"
-                  rel="noreferrer"
                   style={{ ...subtlePanelStyle, padding: 14, color: 'inherit', textDecoration: 'none', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 14, alignItems: 'center' }}
                 >
                   <div style={{ display: 'grid', gap: 6, minWidth: 0 }}>
@@ -178,6 +206,18 @@ export function ScriptsPageClient({ initialScripts, tutorials, projects }: Props
       {message ? <div style={{ color: '#93c5fd', lineHeight: 1.7 }}>{message}</div> : null}
     </div>
   );
+}
+
+function createButtonStyle(isBusy: boolean) {
+  return {
+    border: '1px solid rgba(45,212,191,0.36)',
+    borderRadius: 12,
+    padding: '9px 12px',
+    background: isBusy ? 'rgba(20,184,166,0.2)' : '#2dd4bf',
+    color: isBusy ? '#99f6e4' : '#0f172a',
+    fontWeight: 850,
+    cursor: isBusy ? 'progress' : 'pointer'
+  } as const;
 }
 
 function toolbarButtonStyle(danger: boolean) {

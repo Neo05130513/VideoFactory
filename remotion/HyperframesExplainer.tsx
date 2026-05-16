@@ -363,15 +363,15 @@ function Header({ input, scene, sceneIndex, sceneCount, palette, enter }: { inpu
   const chapter = longVideoChapterName(sceneIndex, sceneCount, scene.shotType);
   return (
     <div style={{ position: 'absolute', left: layout.stagePadX, right: layout.stagePadX, top: layout.stagePadY, display: 'flex', alignItems: 'center', justifyContent: 'space-between', opacity: enter, transform: `translateY(${(1 - enter) * -20}px)` }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-        <div style={{ width: 48, height: 48, borderRadius: 18, display: 'grid', placeItems: 'center', background: `linear-gradient(135deg, ${palette.accent}, ${palette.accent2})`, color: '#020617', fontSize: 26, fontWeight: 950 }}>{meta.icon}</div>
-        <div>
-          <div style={{ color: palette.text, fontSize: layout.isWide ? 24 : 26, fontWeight: 940 }}>{meta.label}</div>
-          <div style={{ color: palette.muted, fontSize: layout.isWide ? 15 : 17, letterSpacing: '0.16em', textTransform: 'uppercase' }}>{meta.tag} / {String(sceneIndex + 1).padStart(2, '0')} of {String(sceneCount).padStart(2, '0')}</div>
+      <div style={{ display: 'grid', gap: 8, minWidth: 0, flex: 1 }}>
+        <div style={{ color: palette.text, fontSize: layout.isWide ? 28 : 30, fontWeight: 950, lineHeight: 1.18, maxWidth: layout.isWide ? 720 : 460 }}>
+          {input.project.title}
+        </div>
+        <div style={{ color: palette.muted, fontSize: layout.isWide ? 15 : 17, letterSpacing: '0.16em', textTransform: 'uppercase', fontWeight: 850 }}>
+          {meta.tag} / {String(sceneIndex + 1).padStart(2, '0')} of {String(sceneCount).padStart(2, '0')}
         </div>
       </div>
-      <div style={{ display: 'grid', justifyItems: 'end', gap: 8 }}>
-        <div style={{ color: palette.muted, fontSize: layout.isWide ? 18 : 20, maxWidth: layout.isWide ? 520 : 340, textAlign: 'right', lineHeight: 1.35 }}>{input.project.title}</div>
+      <div style={{ display: 'grid', justifyItems: 'end', gap: 8, marginLeft: 18 }}>
         {sceneCount >= 7 ? <div style={{ padding: '6px 13px', borderRadius: 999, color: palette.text, background: `${palette.accent}1f`, border: `1px solid ${palette.stroke}`, fontSize: layout.isWide ? 16 : 18, fontWeight: 850 }}>{chapter}</div> : null}
       </div>
     </div>
@@ -957,14 +957,36 @@ function MistakeFrame({ scene, palette, enter, progress }: { scene: RemotionScen
 function CtaFrame({ scene, palette, enter }: { scene: RemotionSceneInput; palette: HyperPalette; enter: number }) {
   const layout = useLayout();
   const title = splitLines(displayHeadline(scene), layout.isWide ? 18 : 11, 3);
+  const summary = displaySummary(scene);
+  const items = displayItems(scene, 4).filter((item) => item !== cleanDisplayLabel(scene.headline || '', 14));
+  const emphasis = cleanDisplayLabel(scene.emphasis || items[0] || '今天开始', 12) || '今天开始';
   return (
     <div style={{ position: 'absolute', left: layout.stagePadX, right: layout.stagePadX, top: layout.isWide ? 152 : 204, bottom: layout.isWide ? 112 : 178, opacity: enter }}>
-      <WindowChrome palette={palette} title="publish.action">
-        <div style={{ position: 'absolute', inset: layout.isWide ? 58 : 42, display: 'grid', placeItems: 'center', textAlign: 'center' }}>
-          <div>
-            <div style={{ color: palette.accent, fontSize: 25, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 950 }}>Ready to ship</div>
-            <div style={{ marginTop: 24, color: palette.text, fontSize: layout.isWide ? 76 : 72, lineHeight: 1.02, fontWeight: 990 }}>{title.map((line, index) => <div key={`${line}-${index}`}>{line}</div>)}</div>
-            <div style={{ margin: '38px auto 0', width: layout.isWide ? 420 : 470, padding: '22px 30px', borderRadius: 999, background: `linear-gradient(90deg, ${palette.accent}, ${palette.good})`, color: '#020617', fontSize: 30, fontWeight: 980 }}>生成脚本 → 预览 → 渲染成片</div>
+      <WindowChrome palette={palette} title="下一步动作">
+        <div style={{ position: 'absolute', inset: layout.isWide ? 58 : 42, display: 'grid', gridTemplateRows: 'auto auto 1fr auto', gap: layout.isWide ? 28 : 24 }}>
+          <div style={{ display: 'grid', gap: 12, textAlign: 'center', justifyItems: 'center' }}>
+            <div style={{ color: palette.accent, fontSize: 22, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 950 }}>Next move</div>
+            <div style={{ color: palette.text, fontSize: layout.isWide ? 76 : 68, lineHeight: 1.02, fontWeight: 990 }}>{title.map((line, index) => <div key={`${line}-${index}`}>{line}</div>)}</div>
+            {summary ? <div style={{ maxWidth: layout.isWide ? 760 : '100%', color: palette.muted, fontSize: layout.isWide ? 26 : 28, lineHeight: 1.34, fontWeight: 760 }}>{summary}</div> : null}
+          </div>
+
+          <div style={{ justifySelf: 'center', padding: '12px 22px', borderRadius: 999, border: `1px solid ${palette.stroke}`, background: `${palette.accent}16`, color: palette.text, fontSize: layout.isWide ? 21 : 24, fontWeight: 900 }}>
+            {emphasis}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: layout.isWide ? 'repeat(2, minmax(0, 1fr))' : '1fr', gap: 18, alignContent: 'center' }}>
+            {items.slice(0, 4).map((item, index) => (
+              <div key={`${item}-${index}`} style={{ borderRadius: 28, padding: layout.isWide ? '24px 28px' : '22px 24px', background: index === 0 ? `linear-gradient(135deg, ${palette.accent}22, ${palette.good}18)` : palette.panel, border: `1px solid ${index === 0 ? palette.accent : palette.stroke}`, color: palette.text, minHeight: layout.isWide ? 126 : 118, display: 'grid', alignContent: 'center', boxShadow: '0 18px 48px rgba(0,0,0,0.18)' }}>
+                <div style={{ color: index === 0 ? palette.accent : palette.muted, fontSize: 16, letterSpacing: '0.14em', textTransform: 'uppercase', fontWeight: 950, marginBottom: 10 }}>
+                  {index === 0 ? 'First' : `Action ${index + 1}`}
+                </div>
+                <div style={{ fontSize: labelFontSize(item, layout.isWide ? 33 : 34), lineHeight: 1.12, fontWeight: 940 }}>{item}</div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ justifySelf: 'center', padding: layout.isWide ? '18px 28px' : '18px 24px', borderRadius: 30, background: `linear-gradient(90deg, ${palette.accent}, ${palette.good})`, color: '#020617', fontSize: layout.isWide ? 28 : 30, lineHeight: 1.18, fontWeight: 980, textAlign: 'center', maxWidth: layout.isWide ? 720 : '100%' }}>
+            先盘点高频问题，再把标准答案和答复边界写清楚
           </div>
         </div>
       </WindowChrome>

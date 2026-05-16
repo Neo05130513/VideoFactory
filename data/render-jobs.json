@@ -1,5 +1,20 @@
 [
   {
+    "id": "render_job_1778749144500_8jg4uk",
+    "ownerUserId": "user_admin_demo",
+    "projectId": "video_project_1778748956421_pg7yz1",
+    "status": "completed",
+    "attempt": 1,
+    "maxAttempts": 2,
+    "createdAt": "2026-05-14T08:59:04.500Z",
+    "updatedAt": "2026-05-14T09:03:46.123Z",
+    "startedAt": "2026-05-14T08:59:05.002Z",
+    "completedAt": "2026-05-14T09:03:46.123Z",
+    "outputPath": "/generated/remotion/video_project_1778748956421_pg7yz1/output.mp4",
+    "stage": "completed",
+    "progress": 100
+  },
+  {
     "id": "render_job_1778512199723_fkx1qd",
     "projectId": "video_project_1778431308725_5j08g5",
     "status": "completed",

@@ -9,6 +9,7 @@ import { commandExists, getExecutablePath } from './runtime/commands';
 import { generatedRelativePath, publicPathFromRelative, resolveAppPath } from './runtime/paths';
 import { getAiSettings } from './ai-settings';
 import { extractDisplayModules, pickDisplayHeadline, pickDisplayLabel, pickDisplayLabels } from './display-labels';
+import { repairStoryboardDisplayLayer, summarizeStoryboardDisplayIssues } from './storyboard-display';
 import { buildScriptShotBreakdown } from './script-shots';
 import { planStoryboardWithAI } from './storyboard-planner';
 import { refundReservation } from './credits';
@@ -1055,29 +1056,46 @@ function shouldFallbackStoryboardOnAIError() {
   return process.env.STORYBOARD_FALLBACK_ON_AI_ERROR !== 'false';
 }
 
+function runStoryboardDisplayQualityGate(scenes: VideoScene[], failurePrefix: string) {
+  const displayCheck = repairStoryboardDisplayLayer(scenes);
+  if (!displayCheck.passed) {
+    throw new Error(`${failurePrefix}: ${summarizeStoryboardDisplayIssues(displayCheck.issues)}`);
+  }
+  return displayCheck;
+}
+
 async function buildLocalStoryboardWithReview(params: {
   project: VideoProject;
   script: Script;
   topic: Topic;
   tutorial: Tutorial;
   score: number;
-  issue: string;
+  issues: string[];
   reasons: string[];
 }) {
-  const scenes = buildStoryboard(params.project, params.script, params.topic, params.tutorial);
+  const displayCheck = runStoryboardDisplayQualityGate(
+    buildStoryboard(params.project, params.script, params.topic, params.tutorial),
+    'Local storyboard display quality check failed after auto-repair'
+  );
+  const issues = [...params.issues];
+  const reasons = [...params.reasons];
+  if (displayCheck.repaired) {
+    issues.push('Storyboard display auto-repair applied.');
+    reasons.push('Rebuilt headline/cards/keywords/visualPrompt to remove truncated labels before saving.');
+  }
 
   await appendStoryboardReview({
     projectId: params.project.id,
     source: 'rule-fallback',
     score: params.score,
-    issues: [params.issue],
-    reasons: params.reasons,
+    issues,
+    reasons,
     retried: false,
     usedFallback: true,
-    scenes
+    scenes: displayCheck.scenes
   });
 
-  return scenes;
+  return displayCheck.scenes;
 }
 
 export async function buildStoryboardWithPlanner(project: VideoProject, script: Script, topic: Topic, tutorial: Tutorial): Promise<VideoScene[]> {
@@ -1088,7 +1106,7 @@ export async function buildStoryboardWithPlanner(project: VideoProject, script: 
       topic,
       tutorial,
       score: 72,
-      issue: 'AI storyboard planner disabled; used local storyboard builder.',
+      issues: ['AI storyboard planner disabled; used local storyboard builder.'],
       reasons: [`STORYBOARD_PLANNER_PROVIDER=${getStoryboardPlannerProvider()}`]
     });
   }
@@ -1096,19 +1114,29 @@ export async function buildStoryboardWithPlanner(project: VideoProject, script: 
   try {
     const planned = await planStoryboardWithAI({ project, script, topic, tutorial });
     if (planned?.scenes?.length) {
+      const displayCheck = runStoryboardDisplayQualityGate(
+        planned.scenes,
+        'AI storyboard display quality check failed after auto-repair'
+      );
+      const issues = [...planned.quality.issues];
+      const reasons = [...planned.quality.reasons];
+      if (displayCheck.repaired) {
+        issues.push('Storyboard display auto-repair applied.');
+        reasons.push('Rebuilt headline/cards/keywords/visualPrompt to remove truncated labels before saving.');
+      }
       await appendStoryboardReview({
         projectId: project.id,
         source: 'openai',
         model: planned.model,
         endpoint: planned.endpoint,
         score: planned.quality.score,
-        issues: planned.quality.issues,
-        reasons: planned.quality.reasons,
+        issues,
+        reasons,
         retried: planned.retried,
         usedFallback: false,
-        scenes: planned.scenes
+        scenes: displayCheck.scenes
       });
-      return planned.scenes;
+      return displayCheck.scenes;
     }
 
     if (shouldFallbackStoryboardOnAIError()) {
@@ -1118,7 +1146,7 @@ export async function buildStoryboardWithPlanner(project: VideoProject, script: 
         topic,
         tutorial,
         score: 64,
-        issue: 'AI storyboard planner returned no scenes; used local fallback.',
+        issues: ['AI storyboard planner returned no scenes; used local fallback.'],
         reasons: ['AI planner returned an empty storyboard.']
       });
     }
@@ -1132,7 +1160,7 @@ export async function buildStoryboardWithPlanner(project: VideoProject, script: 
         topic,
         tutorial,
         score: 64,
-        issue: 'AI storyboard planner failed; used local fallback.',
+        issues: ['AI storyboard planner failed; used local fallback.'],
         reasons: [`AI planner error: ${formatErrorMessage(error)}`]
       });
     }
@@ -1246,7 +1274,11 @@ export async function regenerateStoryboard(projectId: string) {
     ...project,
     status: 'storyboarded',
     updatedAt: nowIso(),
-    lastError: undefined
+    outputPath: undefined,
+    lastError: undefined,
+    lastRenderAttemptAt: undefined,
+    publishScore: 0,
+    publishTier: 'pending'
   };
   const projectScenes = await buildStoryboardWithPlanner(nextProject, script, topic, tutorial);
 
@@ -1272,7 +1304,11 @@ export async function regenerateStoryboardFromScript(projectId: string, scriptId
     title: script.title,
     status: 'storyboarded',
     updatedAt: nowIso(),
+    outputPath: undefined,
     lastError: undefined,
+    lastRenderAttemptAt: undefined,
+    publishScore: 0,
+    publishTier: 'pending',
     opsStatus: 'queued_rework',
     opsUpdatedAt: nowIso()
   };

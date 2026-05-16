@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { formatApiClientError, readApiJson } from '../../_components/api-client';
 import { navigatePendingWindow, openPendingWindow } from '../../_components/open-new-window';
 import { linkButtonStyle, newWindowLinkProps, primaryButtonStyle, secondaryButtonStyle } from '../../_components/studio-ui';
 
@@ -31,12 +32,11 @@ export function ScriptDetailActions({ scriptId, projectIds }: { scriptId: string
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptId, aspectRatio, template })
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || '创建视频失败');
+      const payload = await readApiJson<{ project: { id: string } }>(response, '创建视频失败');
       navigatePendingWindow(nextWindow, `/videos/${payload.project.id}`);
     } catch (error) {
       nextWindow?.close();
-      setMessage(error instanceof Error ? error.message : '创建视频失败');
+      setMessage(formatApiClientError(error, '创建视频失败'));
     } finally {
       setBusy('');
     }
@@ -52,12 +52,11 @@ export function ScriptDetailActions({ scriptId, projectIds }: { scriptId: string
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptId })
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || '复制脚本失败');
+      const payload = await readApiJson<{ script: { id: string } }>(response, '复制脚本失败');
       navigatePendingWindow(nextWindow, `/scripts/${payload.script.id}`);
     } catch (error) {
       nextWindow?.close();
-      setMessage(error instanceof Error ? error.message : '复制脚本失败');
+      setMessage(formatApiClientError(error, '复制脚本失败'));
     } finally {
       setBusy('');
     }
@@ -73,12 +72,11 @@ export function ScriptDetailActions({ scriptId, projectIds }: { scriptId: string
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ scriptId })
       });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || '重建视频失败');
+      const payload = await readApiJson<{ project: { id: string } }>(response, '重建视频失败');
       navigatePendingWindow(nextWindow, `/videos/${payload.project.id}`);
     } catch (error) {
       nextWindow?.close();
-      setMessage(error instanceof Error ? error.message : '重建视频失败');
+      setMessage(formatApiClientError(error, '重建视频失败'));
     } finally {
       setBusy('');
     }

@@ -12,6 +12,9 @@ export function middleware(request: NextRequest) {
 
   const session = request.cookies.get('video_factory_session')?.value;
   if (!session) {
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     return NextResponse.redirect(new URL('/login', request.url));
   }
 

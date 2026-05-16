@@ -1,5 +1,20 @@
 [
   {
+    "id": "topic_1778748855388_kaa05g",
+    "tutorialId": "tutorial_1778748848243_8b4c7g",
+    "title": "老板每天在群里救火？先把这20个问题变成标准答案",
+    "angle": "痛点型",
+    "hookType": "痛点开头",
+    "painPoint": "老板被客户、销售、售后反复拉出来拍板，表面是负责，实际是公司没有可复用的标准流程",
+    "audience": "每天被员工和客户群消息打断、公司大小事都",
+    "platformFit": [
+      "document"
+    ],
+    "viralScore": 70,
+    "createdAt": "2026-05-14T08:54:15.388Z",
+    "ownerUserId": "user_admin_demo"
+  },
+  {
     "id": "topic_1778430285586_0nva2c",
     "tutorialId": "tutorial_1778428884317_k0e0lf",
     "title": "品牌理念太抽象？用IP把企业愿景拍成用户看得懂的短片",

@@ -1,5 +1,25 @@
 [
   {
+    "id": "video_project_1778748956421_pg7yz1",
+    "ownerUserId": "user_admin_demo",
+    "tutorialId": "tutorial_1778748848243_8b4c7g",
+    "topicId": "topic_1778748855388_kaa05g",
+    "scriptId": "script_1778748937093_lfvw5o",
+    "status": "completed",
+    "template": "hyperframes-explainer-v1",
+    "title": "老板天天盯群，不是负责，是流程坏了",
+    "aspectRatio": "16:9",
+    "createdAt": "2026-05-14T08:55:56.421Z",
+    "updatedAt": "2026-05-14T15:03:51.003Z",
+    "outputPath": "/generated/remotion/video_project_1778748956421_pg7yz1/output.mp4",
+    "lastRenderAttemptAt": "2026-05-14T14:41:31.143Z",
+    "visualPreset": "sunset-amber",
+    "publishScore": 100,
+    "publishTier": "publishable",
+    "opsStatus": "idle",
+    "opsUpdatedAt": "2026-05-14T08:55:56.421Z"
+  },
+  {
     "id": "video_project_1778431308725_5j08g5",
     "tutorialId": "tutorial_1778428884317_k0e0lf",
     "topicId": "topic_1778430285586_0nva2c",

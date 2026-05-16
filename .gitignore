@@ -1,6 +1,7 @@
 .env.local
 .env
 .run/
+.next-start-*.log
 public/generated/
 data/imports/
 data/ai-settings.json
